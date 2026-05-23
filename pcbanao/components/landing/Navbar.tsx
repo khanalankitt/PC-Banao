@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useState } from "react";
 
 export default function Navbar() {
   const { data: session, status } = useSession();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
