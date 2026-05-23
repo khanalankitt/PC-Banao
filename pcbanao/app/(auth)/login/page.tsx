@@ -1,68 +1,222 @@
 'use client';
 
-import { signIn, useSession } from 'next-auth/react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import TechBackground from '@/components/auth/TechBackground';
+import BootSequence from '@/components/auth/BootSequence';
+import OAuthButton from '@/components/auth/OAuthButton';
+import GoogleIcon from '@/components/auth/GoogleIcon';
+import FacebookIcon from '@/components/auth/FacebookIcon';
+import FeatureHighlights from '@/components/auth/FeatureHighlights';
 
 export default function LoginPage() {
   const { status } = useSession();
   const router = useRouter();
+  const [booted, setBooted] = useState(false);
+  const [panelVisible, setPanelVisible] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated') router.replace('/');
   }, [status, router]);
 
-  if (status === 'loading') {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <span className="text-gray-500 text-sm">Loading…</span>
-      </div>
-    );
-  }
+  const handleBootComplete = useCallback(() => {
+    setBooted(true);
+    // Stagger panel entrance slightly after boot fade-out
+    setTimeout(() => setPanelVisible(true), 80);
+  }, []);
+
+  if (status === 'authenticated') return null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm border border-gray-100">
-        <h1 className="mb-1 text-2xl font-semibold text-gray-900">Sign in</h1>
-        <p className="mb-8 text-sm text-gray-500">to continue to PC Banao</p>
+    <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden scanline-overlay">
+      <TechBackground />
 
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={() => signIn('google', { callbackUrl: '/' })}
-            className="flex items-center justify-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-95"
-          >
-            <GoogleIcon />
-            Continue with Google
-          </button>
+      {/* Boot sequence overlay */}
+      {!booted && <BootSequence onComplete={handleBootComplete} />}
 
-          <button
-            onClick={() => signIn('facebook', { callbackUrl: '/' })}
-            className="flex items-center justify-center gap-3 rounded-lg bg-[#1877F2] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#166FE5] active:scale-95"
-          >
-            <FacebookIcon />
-            Continue with Facebook
-          </button>
+      {/* Main UI — fades in after boot */}
+      <div
+        className="relative z-10 w-full max-w-lg mx-auto px-4 py-8 transition-all duration-700"
+        style={{
+          opacity: panelVisible ? 1 : 0,
+          transform: panelVisible ? 'translateY(0)' : 'translateY(16px)',
+        }}
+        aria-hidden={!panelVisible}
+      >
+        {/* System status bar */}
+        <div
+          className="flex items-center justify-between mb-6 px-3 py-1.5 rounded font-mono text-[10px] tracking-widest uppercase"
+          style={{
+            background: 'rgba(0,212,255,0.04)',
+            border: '1px solid rgba(0,212,255,0.1)',
+            color: 'var(--text-muted)',
+          }}
+          role="status"
+          aria-label="System status"
+        >
+          <span className="flex items-center gap-2">
+            <span
+              className="w-1.5 h-1.5 rounded-full animate-pulse-glow"
+              style={{ background: 'var(--neon-green)', boxShadow: '0 0 6px var(--neon-green)' }}
+              aria-hidden="true"
+            />
+            System Online
+          </span>
+          <span style={{ color: 'var(--text-muted)' }}>AUTH_GATEWAY v3.1</span>
         </div>
+
+        {/* Glass panel */}
+        <div
+          className="relative glass-panel rounded-2xl p-8 bracket-tl bracket-br"
+          style={{ boxShadow: '0 0 60px rgba(0,212,255,0.05), 0 24px 80px rgba(0,0,0,0.6)' }}
+        >
+          {/* Corner accent line */}
+          <div
+            className="absolute top-0 left-8 right-8 h-[1px]"
+            style={{ background: 'linear-gradient(90deg, transparent, var(--cyan), transparent)' }}
+            aria-hidden="true"
+          />
+
+          {/* Brand */}
+          <header className="text-center mb-8">
+            <div className="flex items-center justify-center gap-3 mb-5" aria-label="BuildForge logo">
+              <div
+                className="relative w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(0,212,255,0.15), rgba(124,58,237,0.15))',
+                  border: '1px solid rgba(0,212,255,0.3)',
+                  boxShadow: '0 0 20px rgba(0,212,255,0.2)',
+                }}
+                aria-hidden="true"
+              >
+                <LogoMark />
+              </div>
+              <h1
+                className="text-2xl font-bold tracking-tight animate-glitch"
+                style={{
+                  background: 'linear-gradient(135deg, #e8f4f8 0%, var(--cyan) 60%, var(--violet) 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                BuildForge
+              </h1>
+            </div>
+
+            <p
+              className="text-sm font-mono tracking-wide animate-boot-fade"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Design. Optimize.{' '}
+              <span style={{ color: 'var(--cyan)' }}>Build smarter PCs.</span>
+            </p>
+          </header>
+
+          {/* Divider with label */}
+          <div className="flex items-center gap-3 mb-6" aria-hidden="true">
+            <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
+            <span
+              className="font-mono text-[10px] tracking-[0.2em] uppercase px-2"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Authenticate
+            </span>
+            <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
+          </div>
+
+          {/* OAuth buttons */}
+          <div
+            className="space-y-3"
+            role="group"
+            aria-label="Sign in options"
+          >
+            <div className="animate-slide-up delay-100">
+              <OAuthButton
+                provider="google"
+                label="Continue with Google"
+                icon={<GoogleIcon />}
+                callbackUrl="/"
+              />
+            </div>
+
+            <div className="animate-slide-up delay-200">
+              <OAuthButton
+                provider="facebook"
+                label="Continue with Facebook"
+                icon={<FacebookIcon />}
+                callbackUrl="/"
+              />
+            </div>
+          </div>
+
+          {/* Trust note */}
+          <p
+            className="mt-5 text-center text-[11px] leading-relaxed animate-slide-up delay-300"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            New to BuildForge? Your account is created automatically
+            on first sign-in. No password required.
+          </p>
+
+          {/* Feature highlights */}
+          <div className="animate-slide-up delay-400">
+            <FeatureHighlights />
+          </div>
+
+          {/* Bottom accent */}
+          <div
+            className="absolute bottom-0 left-8 right-8 h-[1px]"
+            style={{ background: 'linear-gradient(90deg, transparent, var(--violet), transparent)' }}
+            aria-hidden="true"
+          />
+        </div>
+
+        {/* Footer */}
+        <footer
+          className="mt-5 text-center font-mono text-[10px] tracking-widest uppercase animate-slide-up delay-500"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <p>
+            By continuing you agree to our{' '}
+            <a
+              href="#"
+              className="underline decoration-dotted transition-colors hover:text-cyan-400 focus-visible:text-cyan-400"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Terms
+            </a>{' '}
+            &amp;{' '}
+            <a
+              href="#"
+              className="underline decoration-dotted transition-colors hover:text-cyan-400 focus-visible:text-cyan-400"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Privacy
+            </a>
+          </p>
+        </footer>
       </div>
     </div>
   );
 }
 
-function GoogleIcon() {
+function LogoMark() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
-      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853"/>
-      <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05"/>
-      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
-    </svg>
-  );
-}
-
-function FacebookIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-      <path d="M24 12.073C24 5.406 18.627 0 12 0S0 5.406 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.931-1.956 1.886v2.268h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073Z"/>
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+      {/* CPU chip shape */}
+      <rect x="5" y="5" width="12" height="12" rx="2" stroke="var(--cyan)" strokeWidth="1.5" />
+      <rect x="8" y="8" width="6" height="6" rx="1" fill="var(--cyan)" opacity="0.6" />
+      {/* Pins */}
+      <line x1="8" y1="1" x2="8" y2="5"  stroke="var(--cyan)" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="14" y1="1" x2="14" y2="5" stroke="var(--cyan)" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="8" y1="17" x2="8" y2="21"  stroke="var(--violet)" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="14" y1="17" x2="14" y2="21" stroke="var(--violet)" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="1" y1="8"  x2="5" y2="8"  stroke="var(--cyan)" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="1" y1="14" x2="5" y2="14" stroke="var(--cyan)" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="17" y1="8"  x2="21" y2="8"  stroke="var(--violet)" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="17" y1="14" x2="21" y2="14" stroke="var(--violet)" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }
