@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useSession, signIn } from "next-auth/react";
 import Navbar from "@/components/landing/Navbar";
 import api from "@/lib/api/axios";
+import { useBuilderStore } from "@/store/builderStore";
+import type { SlotKey } from "@/store/builderStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -427,6 +430,23 @@ const MOCK_BUILDS: IBuild[] = [
 
 function BuildCard({ build, index }: { build: IBuild; index: number }) {
   const [hovered, setHovered] = useState(false);
+  const router = useRouter();
+  const { setPart, setBuildName, resetBuild } = useBuilderStore();
+
+  function handleClone() {
+    resetBuild();
+    setBuildName(`${build.name} (Clone)`);
+    const seen = new Set<string>();
+    for (const { category, part } of build.components) {
+      if (!seen.has(category)) {
+        setPart(category as SlotKey, { ...part, category: category as SlotKey });
+        seen.add(category);
+      } else {
+        setPart(category as SlotKey, { ...part, category: category as SlotKey });
+      }
+    }
+    router.push('/builder');
+  }
   const photo = BUILD_PHOTOS[index % BUILD_PHOTOS.length];
   const compatible = build.compatibility.isCompatible;
   const componentCount = build.components.length;
@@ -762,6 +782,7 @@ function BuildCard({ build, index }: { build: IBuild; index: number }) {
         {/* Action buttons */}
         <div style={{ display: "flex", gap: "8px", marginTop: "auto" }}>
           <button
+            onClick={() => router.push(`/builds/${build._id}`)}
             style={{
               flex: 2,
               padding: "10px 0",
@@ -781,6 +802,7 @@ function BuildCard({ build, index }: { build: IBuild; index: number }) {
             View Build
           </button>
           <button
+            onClick={handleClone}
             style={{
               flex: 1,
               padding: "10px 0",

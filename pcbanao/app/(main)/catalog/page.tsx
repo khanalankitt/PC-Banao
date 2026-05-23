@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/landing/Navbar";
 import api from "@/lib/api/axios";
+import { useBuilderStore } from "@/store/builderStore";
+import type { SlotKey } from "@/store/builderStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -321,6 +324,13 @@ function ProductCard({ part }: { part: IPart }) {
   const [hovered, setHovered] = useState(false);
   const accent = CATEGORY_ACCENT[part.category] ?? "var(--cyan)";
   const inStock = part.stock > 0;
+  const setPart = useBuilderStore((s) => s.setPart);
+  const router = useRouter();
+
+  function handleAddToBuilder() {
+    setPart(part.category as SlotKey, part);
+    router.push("/builder");
+  }
 
   return (
     <article
@@ -532,6 +542,7 @@ function ProductCard({ part }: { part: IPart }) {
 
         {/* CTA */}
         <button
+          onClick={inStock ? handleAddToBuilder : undefined}
           style={{
             width: "100%",
             padding: "9px 0",

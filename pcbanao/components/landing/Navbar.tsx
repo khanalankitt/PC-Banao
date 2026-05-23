@@ -59,24 +59,31 @@ export default function Navbar() {
             { href: "/catalog", label: "Catalog" },
             { href: "/builder", label: "Builder" },
             { href: "/builds", label: "Builds" },
-          ].map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              role="listitem"
-              className="text-xs font-medium tracking-widest uppercase transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded px-1"
-              style={{ color: "var(--text-secondary)" }}
-              onMouseEnter={(e) =>
-                ((e.target as HTMLElement).style.color = "var(--cyan)")
-              }
-              onMouseLeave={(e) =>
-                ((e.target as HTMLElement).style.color =
-                  "var(--text-secondary)")
-              }
-            >
-              {label}
-            </Link>
-          ))}
+          ].map(({ href, label }) => {
+            const isActive = pathname === href || pathname.startsWith(href + "/");
+            return (
+              <Link
+                key={href}
+                href={href}
+                role="listitem"
+                className="text-xs font-medium tracking-widest uppercase transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded px-1"
+                style={{
+                  color: isActive ? "var(--cyan)" : "var(--text-secondary)",
+                  textShadow: isActive ? "0 0 12px var(--cyan-glow)" : "none",
+                  borderBottom: isActive ? "1px solid var(--cyan)" : "1px solid transparent",
+                  paddingBottom: "2px",
+                }}
+                onMouseEnter={(e) =>
+                  ((e.target as HTMLElement).style.color = "var(--cyan)")
+                }
+                onMouseLeave={(e) =>
+                  ((e.target as HTMLElement).style.color = isActive ? "var(--cyan)" : "var(--text-secondary)")
+                }
+              >
+                {label}
+              </Link>
+            );
+          })}
         </div>
 
         {/* Auth */}
@@ -178,17 +185,20 @@ export default function Navbar() {
             { href: "/catalog", label: "Catalog" },
             { href: "/builder", label: "Builder" },
             { href: "/builds", label: "Builds" },
-          ].map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className="text-sm font-medium tracking-wider uppercase"
-              style={{ color: "var(--text-secondary)" }}
-              onClick={() => setMenuOpen(false)}
-            >
-              {label}
-            </Link>
-          ))}
+          ].map(({ href, label }) => {
+            const isActive = pathname === href || pathname.startsWith(href + "/");
+            return (
+              <Link
+                key={href}
+                href={href}
+                className="text-sm font-medium tracking-wider uppercase"
+                style={{ color: isActive ? "var(--cyan)" : "var(--text-secondary)" }}
+                onClick={() => setMenuOpen(false)}
+              >
+                {label}
+              </Link>
+            );
+          })}
           {!session && (
             <button
               onClick={() => {
