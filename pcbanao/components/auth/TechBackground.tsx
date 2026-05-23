@@ -14,7 +14,7 @@ export default function TechBackground() {
       <div
         className="absolute -top-1/4 -left-1/4 w-[800px] h-[800px] rounded-full animate-pulse-glow"
         style={{
-          background: 'radial-gradient(circle, rgba(0,212,255,0.07) 0%, transparent 70%)',
+          background: 'var(--bg-radial-cyan)',
           filter: 'blur(1px)',
         }}
       />
@@ -23,7 +23,7 @@ export default function TechBackground() {
       <div
         className="absolute -bottom-1/4 -right-1/4 w-[700px] h-[700px] rounded-full animate-pulse-glow delay-500"
         style={{
-          background: 'radial-gradient(circle, rgba(124,58,237,0.09) 0%, transparent 70%)',
+          background: 'var(--bg-radial-violet)',
           filter: 'blur(1px)',
         }}
       />
@@ -92,7 +92,7 @@ export default function TechBackground() {
       <div
         className="absolute inset-0"
         style={{
-          background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.015) 2px, rgba(0,0,0,0.015) 4px)',
+          background: `repeating-linear-gradient(0deg, transparent, transparent 2px, var(--scanline-overlay) 2px, var(--scanline-overlay) 4px)`,
         }}
       />
     </div>

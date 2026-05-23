@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'BuildForge — AI-Powered PC Builder',
+  title: 'PC Banao — AI-Powered PC Builder',
   description: 'Design, optimize, and build your perfect PC with AI-powered compatibility checking and a curated part catalog.',
 };
 

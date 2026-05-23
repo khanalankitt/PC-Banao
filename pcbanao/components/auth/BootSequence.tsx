@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 const BOOT_LINES = [
-  { text: 'BUILDFORGE OS v3.1.0 — INITIALIZING...', delay: 0 },
+  { text: 'PC Banao OS v3.1.0 — INITIALIZING...', delay: 0 },
   { text: 'Loading hardware profile engine......... OK', delay: 180 },
   { text: 'Mounting compatibility matrix............. OK', delay: 360 },
   { text: 'Connecting to component database.......... OK', delay: 540 },
@@ -62,7 +62,7 @@ export default function BootSequence({ onComplete }: Props) {
             className="font-mono text-sm tracking-[0.3em] uppercase"
             style={{ color: 'var(--cyan)' }}
           >
-            BuildForge
+            PC Banao
           </span>
         </div>
 
@@ -87,7 +87,7 @@ export default function BootSequence({ onComplete }: Props) {
         {/* Progress bar */}
         <div
           className="mt-8 h-[2px] rounded-full overflow-hidden"
-          style={{ background: 'rgba(0,212,255,0.1)' }}
+          style={{ background: 'var(--border-status-bar)' }}
         >
           <div
             className="h-full rounded-full transition-all duration-700 ease-out"

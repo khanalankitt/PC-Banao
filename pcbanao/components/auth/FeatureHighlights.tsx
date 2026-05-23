@@ -40,20 +40,20 @@ export default function FeatureHighlights() {
           role="listitem"
           className="group flex flex-col gap-2 p-3 rounded-lg transition-all duration-200 cursor-default"
           style={{
-            background: 'rgba(0,212,255,0.025)',
-            border: '1px solid rgba(0,212,255,0.07)',
+            background: 'var(--bg-status-bar)',
+            border: '1px solid var(--border-subtle)',
           }}
           onMouseEnter={e => {
-            (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,212,255,0.05)';
-            (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(0,212,255,0.2)';
+            (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-badge)';
+            (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-ghost-hover)';
           }}
           onMouseLeave={e => {
-            (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,212,255,0.025)';
-            (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(0,212,255,0.07)';
+            (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-status-bar)';
+            (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-subtle)';
           }}
         >
           <div className="w-7 h-7 flex items-center justify-center rounded"
-            style={{ background: 'rgba(0,212,255,0.08)' }}>
+            style={{ background: 'var(--bg-badge)' }}>
             {f.icon}
           </div>
           <p className="text-[11px] font-semibold tracking-wide" style={{ color: 'var(--text-primary)' }}>
