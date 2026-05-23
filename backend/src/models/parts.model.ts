@@ -1,4 +1,4 @@
-import { Schema } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
 export type PartCategory =
   | "cpu"
@@ -9,6 +9,17 @@ export type PartCategory =
   | "psu"
   | "case"
   | "cooler";
+
+const categories: PartCategory[] = [
+  "cpu",
+  "gpu",
+  "motherboard",
+  "ram",
+  "storage",
+  "psu",
+  "case",
+  "cooler",
+];
 
 export interface IPartSpecs {
   // CPU
@@ -80,6 +91,7 @@ const PartSchema = new Schema<IPart>(
   { timestamps: true },
 );
 
-// Index for fast filtering
 PartSchema.index({ category: 1, price: 1 });
 PartSchema.index({ brand: 1 });
+
+export default mongoose.model<IPart>("Part", PartSchema);

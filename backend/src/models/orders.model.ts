@@ -1,4 +1,7 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Document } from 'mongoose';
+
+const ORDER_STATUSES = ['pending', 'paid', 'shipped', 'delivered', 'cancelled'] as const;
+export type OrderStatus = typeof ORDER_STATUSES[number];
 
 export interface IOrderItem {
   part:     mongoose.Types.ObjectId;
@@ -11,7 +14,7 @@ export interface IOrder extends Document {
   build?:    mongoose.Types.ObjectId;   // optional — if ordered from a saved build
   items:     IOrderItem[];
   totalAmount: number;
-  status:    'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+  status:    OrderStatus;
   paymentId: string;   // from payment gateway
   address:   {
     street: string;
@@ -31,7 +34,7 @@ const OrderSchema = new Schema<IOrder>({
     price:    { type: Number, required: true },
   }],
   totalAmount: { type: Number, required: true },
-  status:      { type: String, enum: [...statuses], default: 'pending' },
+  status:      { type: String, enum: ORDER_STATUSES, default: 'pending' },
   paymentId:   { type: String },
   address:     { street: String, city: String, state: String, zip: String, country: String },
 }, { timestamps: true });

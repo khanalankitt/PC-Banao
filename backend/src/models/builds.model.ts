@@ -1,4 +1,4 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IBuildComponents {
   cpu?:         mongoose.Types.ObjectId;
@@ -43,3 +43,8 @@ const BuildSchema = new Schema<IBuild>({
   isPublic:            { type: Boolean, default: false },
   aiSuggested:         { type: Boolean, default: false },
 }, { timestamps: true });
+
+BuildSchema.index({ user: 1, createdAt: -1 });
+BuildSchema.index({ isPublic: 1 });
+
+export default mongoose.model<IBuild>('Build', BuildSchema);
