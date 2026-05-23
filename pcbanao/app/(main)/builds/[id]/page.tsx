@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import Navbar from '@/components/landing/Navbar';
 import api from '@/lib/api/axios';
@@ -34,37 +35,6 @@ interface IBuild {
   createdAt: string;
 }
 
-// ─── Mock builds (same as builds page) ───────────────────────────────────────
-
-const MOCK_PARTS: IPart[] = [
-  { _id: 'p1',  name: 'Ryzen 9 7950X',         brand: 'AMD',     category: 'cpu',         price: 699,  stock: 14, images: [], specs: { cores: 16, socket: 'AM5', tdp: '170W' },           wattage: 170 },
-  { _id: 'p2',  name: 'RTX 4090',               brand: 'NVIDIA',  category: 'gpu',         price: 1599, stock: 4,  images: [], specs: { vram: '24 GB GDDR6X', tdp: '450W' },                wattage: 450 },
-  { _id: 'p3',  name: 'ROG Crosshair X670E',    brand: 'ASUS',    category: 'motherboard', price: 629,  stock: 6,  images: [], specs: { socket: 'AM5', chipset: 'X670E' } },
-  { _id: 'p4',  name: 'Trident Z5 64 GB DDR5',  brand: 'G.Skill', category: 'ram',         price: 219,  stock: 18, images: [], specs: { capacity: '64 GB', speed: '6000 MHz' } },
-  { _id: 'p5',  name: '990 Pro 2 TB NVMe',       brand: 'Samsung', category: 'storage',     price: 179,  stock: 25, images: [], specs: { capacity: '2 TB', interface: 'PCIe 4.0' } },
-  { _id: 'p6',  name: 'HX1200 Platinum 1200W',  brand: 'Corsair', category: 'psu',         price: 229,  stock: 9,  images: [], specs: { wattage: '1200W' },                               wattage: 1200 },
-  { _id: 'p7',  name: 'O11D EVO RGB',            brand: 'Lian Li', category: 'case',        price: 179,  stock: 5,  images: [], specs: { formFactor: 'Mid Tower' } },
-  { _id: 'p8',  name: 'Kraken Elite 360',        brand: 'NZXT',    category: 'cooler',      price: 269,  stock: 3,  images: [], specs: { type: 'Liquid AIO', radiator: '360 mm' },         wattage: 25 },
-  { _id: 'p9',  name: 'Core i5-13600K',          brand: 'Intel',   category: 'cpu',         price: 299,  stock: 20, images: [], specs: { cores: 14, socket: 'LGA1700', tdp: '125W' },      wattage: 125 },
-  { _id: 'p10', name: 'RTX 4070 Ti',             brand: 'NVIDIA',  category: 'gpu',         price: 799,  stock: 11, images: [], specs: { vram: '12 GB GDDR6X', tdp: '285W' },              wattage: 285 },
-  { _id: 'p11', name: 'Vengeance 32 GB DDR5',   brand: 'Corsair', category: 'ram',         price: 129,  stock: 31, images: [], specs: { capacity: '32 GB', speed: '6200 MHz' } },
-  { _id: 'p12', name: 'FireCuda 530 4 TB',       brand: 'Seagate', category: 'storage',     price: 329,  stock: 12, images: [], specs: { capacity: '4 TB', interface: 'PCIe 4.0' } },
-  { _id: 'p13', name: 'FOCUS GX-850 850W',       brand: 'Seasonic',category: 'psu',         price: 149,  stock: 15, images: [], specs: { wattage: '850W' },                               wattage: 850 },
-  { _id: 'p14', name: 'H9 Flow Mid Tower',       brand: 'NZXT',    category: 'case',        price: 129,  stock: 8,  images: [], specs: { formFactor: 'Mid Tower' } },
-  { _id: 'p15', name: 'RX 7900 XTX',            brand: 'AMD',     category: 'gpu',         price: 999,  stock: 7,  images: [], specs: { vram: '24 GB GDDR6', tdp: '355W' },               wattage: 355 },
-];
-
-const MOCK_BUILDS: IBuild[] = [
-  { _id: 'b1', name: 'Ryzen Titan',        user: { _id: 'u1', name: 'Alex Rivera',   image: 'https://i.pravatar.cc/40?img=11' }, components: [{ category: 'cpu', part: MOCK_PARTS[0] }, { category: 'gpu', part: MOCK_PARTS[1] }, { category: 'motherboard', part: MOCK_PARTS[2] }, { category: 'ram', part: MOCK_PARTS[3] }, { category: 'storage', part: MOCK_PARTS[4] }, { category: 'psu', part: MOCK_PARTS[5] }, { category: 'case', part: MOCK_PARTS[6] }, { category: 'cooler', part: MOCK_PARTS[7] }], totalPrice: 3802, totalWattage: 645, isPublic: true, compatibility: { isCompatible: true,  issues: [] }, createdAt: '2025-05-10T12:00:00Z' },
-  { _id: 'b2', name: 'Budget Beast',       user: { _id: 'u2', name: 'Priya Sharma',  image: 'https://i.pravatar.cc/40?img=32' }, components: [{ category: 'cpu', part: MOCK_PARTS[8] }, { category: 'gpu', part: { ...MOCK_PARTS[9], name: 'RTX 4060 Ti', price: 399, wattage: 165 } }, { category: 'ram', part: MOCK_PARTS[10] }, { category: 'storage', part: MOCK_PARTS[4] }, { category: 'psu', part: MOCK_PARTS[12] }, { category: 'case', part: MOCK_PARTS[13] }], totalPrice: 1134, totalWattage: 430, isPublic: true, compatibility: { isCompatible: true,  issues: [] }, createdAt: '2025-05-08T09:30:00Z' },
-  { _id: 'b3', name: '4K Streaming Rig',  user: { _id: 'u3', name: 'Jordan Lee',    image: 'https://i.pravatar.cc/40?img=45' }, components: [{ category: 'cpu', part: { ...MOCK_PARTS[0], name: 'Core i9-13900K', brand: 'Intel', price: 589, wattage: 125 } }, { category: 'gpu', part: MOCK_PARTS[1] }, { category: 'ram', part: MOCK_PARTS[3] }, { category: 'storage', part: MOCK_PARTS[11] }, { category: 'psu', part: MOCK_PARTS[5] }], totalPrice: 2715, totalWattage: 575, isPublic: true, compatibility: { isCompatible: true,  issues: [] }, createdAt: '2025-05-07T16:45:00Z' },
-  { _id: 'b4', name: 'Silent Workstation', user: { _id: 'u4', name: 'Marcus Chen',   image: 'https://i.pravatar.cc/40?img=60' }, components: [{ category: 'cpu', part: MOCK_PARTS[0] }, { category: 'gpu', part: MOCK_PARTS[9] }, { category: 'motherboard', part: MOCK_PARTS[2] }, { category: 'ram', part: MOCK_PARTS[3] }, { category: 'storage', part: MOCK_PARTS[4] }, { category: 'cooler', part: MOCK_PARTS[7] }], totalPrice: 2574, totalWattage: 480, isPublic: true, compatibility: { isCompatible: true,  issues: [] }, createdAt: '2025-05-06T11:00:00Z' },
-  { _id: 'b5', name: 'RGB Everything',    user: { _id: 'u5', name: 'Kai Nakamura',  image: 'https://i.pravatar.cc/40?img=15' }, components: [{ category: 'cpu', part: MOCK_PARTS[8] }, { category: 'gpu', part: MOCK_PARTS[14] }, { category: 'ram', part: MOCK_PARTS[3] }, { category: 'storage', part: MOCK_PARTS[4] }, { category: 'psu', part: MOCK_PARTS[5] }, { category: 'case', part: MOCK_PARTS[6] }], totalPrice: 2354, totalWattage: 550, isPublic: true, compatibility: { isCompatible: false, issues: ['PSU wattage may be insufficient at peak load'] }, createdAt: '2025-05-05T14:20:00Z' },
-  { _id: 'b6', name: 'Mini ITX Sleeper', user: { _id: 'u6', name: 'Sofia Reyes',   image: 'https://i.pravatar.cc/40?img=27' }, components: [{ category: 'cpu', part: MOCK_PARTS[8] }, { category: 'gpu', part: { ...MOCK_PARTS[9], name: 'RTX 4070 Super', price: 599, wattage: 220 } }, { category: 'ram', part: MOCK_PARTS[10] }, { category: 'psu', part: MOCK_PARTS[12] }], totalPrice: 1176, totalWattage: 345, isPublic: true, compatibility: { isCompatible: true,  issues: [] }, createdAt: '2025-05-04T08:10:00Z' },
-  { _id: 'b7', name: 'AMD Powerhouse',   user: { _id: 'u7', name: 'Dmitri Volkov', image: 'https://i.pravatar.cc/40?img=52' }, components: [{ category: 'cpu', part: MOCK_PARTS[0] }, { category: 'gpu', part: MOCK_PARTS[14] }, { category: 'motherboard', part: MOCK_PARTS[2] }, { category: 'ram', part: MOCK_PARTS[3] }, { category: 'storage', part: MOCK_PARTS[11] }, { category: 'psu', part: MOCK_PARTS[5] }, { category: 'cooler', part: MOCK_PARTS[7] }], totalPrice: 3223, totalWattage: 525, isPublic: true, compatibility: { isCompatible: true,  issues: [] }, createdAt: '2025-05-03T19:00:00Z' },
-  { _id: 'b8', name: 'Content Creator Pro', user: { _id: 'u8', name: 'Amara Osei', image: 'https://i.pravatar.cc/40?img=38' }, components: [{ category: 'cpu', part: { ...MOCK_PARTS[0], name: 'Core i9-13900K', brand: 'Intel', price: 589, wattage: 125 } }, { category: 'gpu', part: MOCK_PARTS[1] }, { category: 'ram', part: { ...MOCK_PARTS[3], name: '128 GB DDR5-5600', price: 399 } }, { category: 'storage', part: MOCK_PARTS[11] }, { category: 'storage', part: MOCK_PARTS[4] }, { category: 'psu', part: MOCK_PARTS[5] }, { category: 'cooler', part: MOCK_PARTS[7] }], totalPrice: 3289, totalWattage: 600, isPublic: true, compatibility: { isCompatible: true, issues: [] }, createdAt: '2025-05-02T13:30:00Z' },
-];
-
 // ─── Category accent colours ──────────────────────────────────────────────────
 
 const CAT_ACCENT: Record<string, string> = {
@@ -77,16 +47,53 @@ const CAT_EMOJI: Record<string, string> = {
   ram: '💾', storage: '💿', psu: '⚡', case: '📦', cooler: '❄️',
 };
 
+// ─── Normalise backend build shape ───────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normaliseApiBuild(raw: any): IBuild {
+  const comps = raw.components ?? {};
+  const componentList: { category: string; part: IPart }[] = [];
+  for (const key of ['cpu', 'gpu', 'motherboard', 'psu', 'case', 'cooler'] as const) {
+    if (comps[key] && typeof comps[key] === 'object') {
+      componentList.push({ category: key, part: comps[key] as IPart });
+    }
+  }
+  for (const part of (comps.ram ?? []) as IPart[]) {
+    if (part && typeof part === 'object') componentList.push({ category: 'ram', part });
+  }
+  for (const part of (comps.storage ?? []) as IPart[]) {
+    if (part && typeof part === 'object') componentList.push({ category: 'storage', part });
+  }
+  return {
+    _id: raw._id,
+    name: raw.name ?? 'Untitled',
+    user: typeof raw.user === 'object' && raw.user !== null
+      ? { _id: String(raw.user._id ?? raw.user), name: raw.user.name ?? 'Unknown', image: raw.user.image }
+      : { _id: String(raw.user), name: 'Unknown' },
+    components: componentList,
+    totalPrice: raw.totalPrice ?? 0,
+    totalWattage: raw.totalWattage ?? 0,
+    isPublic: raw.isPublic ?? false,
+    compatibility: { isCompatible: raw.isCompatible ?? true, issues: raw.compatibilityIssues ?? [] },
+    createdAt: raw.createdAt ?? new Date().toISOString(),
+  };
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ViewBuildPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { setPart, setBuildName, resetBuild } = useBuilderStore();
+  const { data: session } = useSession();
+  const { setPart, setBuildName, setBuildId, setIsPublic, resetBuild } = useBuilderStore();
 
   const [build, setBuild] = useState<IBuild | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // Delete state
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -94,35 +101,52 @@ export default function ViewBuildPage() {
       .get(`/api/builds/${id}`)
       .then((res) => {
         if (res.data?.success && res.data?.data) {
-          setBuild(res.data.data);
+          setBuild(normaliseApiBuild(res.data.data));
         } else {
           throw new Error('not found');
         }
       })
       .catch(() => {
-        const mock = MOCK_BUILDS.find((b) => b._id === id);
-        if (mock) setBuild(mock);
-        else setNotFound(true);
+        setNotFound(true);
       })
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Only show edit/delete to the user whose _id matches the build owner.
+  // Re-login is required after the _id field was added to the session.
+  const isOwner = !!session?.user?._id && !!build && session.user._id === build.user._id;
+
+  function loadBuildIntoStore(targetBuild: IBuild, keepId: boolean) {
+    resetBuild();
+    setBuildName(targetBuild.name);
+    setIsPublic(targetBuild.isPublic);
+    if (keepId) setBuildId(targetBuild._id);
+    for (const { category, part } of targetBuild.components) {
+      setPart(category as SlotKey, { ...part, category: category as SlotKey });
+    }
+  }
+
   function handleClone() {
     if (!build) return;
-    resetBuild();
-    setBuildName(`${build.name} (Clone)`);
-    // Load each unique-category part into the store
-    const seen = new Set<string>();
-    for (const { category, part } of build.components) {
-      const typed = { ...part, category: category as SlotKey };
-      if (!seen.has(category)) {
-        setPart(category as SlotKey, typed);
-        seen.add(category);
-      } else {
-        setPart(category as SlotKey, typed);
-      }
-    }
+    loadBuildIntoStore({ ...build, name: `${build.name} (Clone)` }, false);
     router.push('/builder');
+  }
+
+  function handleEdit() {
+    if (!build) return;
+    loadBuildIntoStore(build, true);
+    router.push('/builder');
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await api.delete(`/api/builds/${id}`);
+      router.push('/builds');
+    } catch {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
   }
 
   if (loading) {
@@ -200,6 +224,9 @@ export default function ViewBuildPage() {
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   {new Date(build.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '6px', background: build.isPublic ? 'rgba(0,212,255,0.1)' : 'rgba(255,255,255,0.06)', border: `1px solid ${build.isPublic ? 'rgba(0,212,255,0.2)' : 'rgba(255,255,255,0.1)'}`, color: build.isPublic ? 'var(--cyan)' : 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  {build.isPublic ? 'Public' : 'Private'}
+                </span>
               </div>
             </div>
 
@@ -227,33 +254,41 @@ export default function ViewBuildPage() {
             </div>
           )}
 
-          {/* Clone button */}
+          {/* Action buttons */}
           <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
               onClick={handleClone}
-              style={{
-                padding: '11px 28px', borderRadius: '10px',
-                background: 'linear-gradient(135deg, var(--cyan), var(--cyan-dim))',
-                border: 'none', color: '#020408',
-                fontSize: '13px', fontWeight: 800, letterSpacing: '0.08em',
-                textTransform: 'uppercase', cursor: 'pointer',
-                boxShadow: '0 0 20px var(--cyan-glow)',
-                transition: 'opacity 0.2s',
-              }}
+              style={{ padding: '11px 28px', borderRadius: '10px', background: 'linear-gradient(135deg, var(--cyan), var(--cyan-dim))', border: 'none', color: '#020408', fontSize: '13px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 0 20px var(--cyan-glow)', transition: 'opacity 0.2s' }}
               onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
               onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
             >
               Clone Build
             </button>
+
+            {isOwner && (
+              <>
+                <button
+                  onClick={handleEdit}
+                  style={{ padding: '11px 22px', borderRadius: '10px', background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', fontSize: '13px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', transition: 'opacity 0.2s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.75')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                >
+                  Edit Build
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  style={{ padding: '11px 22px', borderRadius: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171', fontSize: '13px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', transition: 'opacity 0.2s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.75')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                >
+                  Delete
+                </button>
+              </>
+            )}
+
             <Link
               href="/builds"
-              style={{
-                padding: '11px 20px', borderRadius: '10px',
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
-                color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 700,
-                letterSpacing: '0.06em', textTransform: 'uppercase', textDecoration: 'none',
-                display: 'inline-flex', alignItems: 'center',
-              }}
+              style={{ padding: '11px 20px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
             >
               All Builds
             </Link>
@@ -275,11 +310,7 @@ export default function ViewBuildPage() {
               return (
                 <div
                   key={i}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '14px',
-                    padding: '14px 24px',
-                    borderBottom: i < build.components.length - 1 ? '1px solid var(--border-divider)' : 'none',
-                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 24px', borderBottom: i < build.components.length - 1 ? '1px solid var(--border-divider)' : 'none' }}
                 >
                   <div style={{ width: '38px', height: '38px', borderRadius: '8px', flexShrink: 0, background: `${accent}15`, border: `1px solid ${accent}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
                     {emoji}
@@ -299,6 +330,37 @@ export default function ViewBuildPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Delete confirmation modal ─────────────────────────────────────── */}
+      {confirmDelete && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(2,4,8,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}
+          onClick={(e) => { if (e.target === e.currentTarget && !deleting) setConfirmDelete(false); }}
+        >
+          <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '400px', textAlign: 'center' }}>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗑️</div>
+            <h2 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 800 }}>Delete Build?</h2>
+            <p style={{ margin: '0 0 24px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>{build.name}</strong> will be permanently deleted. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => !deleting && setConfirmDelete(false)}
+                style={{ flex: 1, padding: '11px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{ flex: 1, padding: '11px', borderRadius: '10px', background: deleting ? 'rgba(239,68,68,0.4)' : '#ef4444', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: deleting ? 'not-allowed' : 'pointer' }}
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

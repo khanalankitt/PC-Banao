@@ -912,6 +912,46 @@ function SignInPrompt() {
   );
 }
 
+// ─── Normalise backend build → IBuild ────────────────────────────────────────
+// Backend shape:  { components: { cpu: ObjectId, ram: ObjectId[], ... }, isCompatible, compatibilityIssues, user: ObjectId }
+// Frontend shape: { components: { category, part }[], compatibility: { isCompatible, issues } }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normaliseApiBuild(raw: any): IBuild {
+  const comps = raw.components ?? {};
+  const componentList: { category: string; part: IPart }[] = [];
+
+  const singles = ["cpu", "gpu", "motherboard", "psu", "case", "cooler"] as const;
+  for (const key of singles) {
+    if (comps[key] && typeof comps[key] === "object") {
+      componentList.push({ category: key, part: comps[key] as IPart });
+    }
+  }
+  for (const part of (comps.ram ?? []) as IPart[]) {
+    if (part && typeof part === "object") componentList.push({ category: "ram", part });
+  }
+  for (const part of (comps.storage ?? []) as IPart[]) {
+    if (part && typeof part === "object") componentList.push({ category: "storage", part });
+  }
+
+  return {
+    _id:         raw._id,
+    name:        raw.name ?? "Untitled",
+    user:        typeof raw.user === "object" && raw.user !== null
+                   ? raw.user
+                   : { _id: String(raw.user), name: "Unknown" },
+    components:  componentList,
+    totalPrice:  raw.totalPrice ?? 0,
+    totalWattage: raw.totalWattage ?? 0,
+    isPublic:    raw.isPublic ?? false,
+    compatibility: {
+      isCompatible: raw.isCompatible ?? true,
+      issues:       raw.compatibilityIssues ?? [],
+    },
+    createdAt:   raw.createdAt ?? new Date().toISOString(),
+  };
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BuildsPage() {
@@ -940,11 +980,12 @@ export default function BuildsPage() {
   useEffect(() => {
     setLoadingCommunity(true);
     api
-      .get("/api/builds", { params: { page: 1, limit: 20 } })
+      .get("/api/builds/public", { params: { page: 1, limit: 20 } })
       .then((res) => {
-        if (res.data?.success && Array.isArray(res.data?.data?.builds)) {
-          setCommunityBuilds(res.data.data.builds);
+        if (res.data?.success && Array.isArray(res.data?.data?.builds) && res.data.data.builds.length > 0) {
+          setCommunityBuilds(res.data.data.builds.map(normaliseApiBuild));
         }
+        // If API returns empty, keep mock builds so the page isn't blank
       })
       .catch(() => {
         // Backend unavailable — mock data stays
@@ -957,10 +998,10 @@ export default function BuildsPage() {
     if (!session || activeTab !== "mine") return;
     setLoadingMine(true);
     api
-      .get("/api/builds/mine", { params: { page: 1, limit: 20 } })
+      .get("/api/builds/mine")
       .then((res) => {
-        if (res.data?.success && Array.isArray(res.data?.data?.builds)) {
-          setMyBuilds(res.data.data.builds);
+        if (res.data?.success && Array.isArray(res.data?.data)) {
+          setMyBuilds(res.data.data.map(normaliseApiBuild));
         }
       })
       .catch(() => {

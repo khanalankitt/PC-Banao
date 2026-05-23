@@ -64,7 +64,11 @@ function buildComponentsFromRaw(raw: CreateBuildInput['components']) {
 }
 
 function assertOwnership(build: BuildRow, userId: string): void {
-  if (build.user.toString() !== userId) {
+  const ownerId =
+    typeof build.user === 'object' && build.user !== null
+      ? String((build.user as { _id: unknown })._id)
+      : String(build.user);
+  if (ownerId !== userId) {
     throw new AppError('Forbidden', 403);
   }
 }
@@ -107,12 +111,18 @@ export async function getPublicBuilds(
   return { builds, total, page, limit };
 }
 
-export async function getBuildById(buildId: string, requestingUserId: string): Promise<BuildRow> {
+export async function getBuildById(buildId: string, requestingUserId?: string): Promise<BuildRow> {
   const build = await findBuildById(new mongoose.Types.ObjectId(buildId));
   if (!build) throw new AppError('Build not found', 404);
 
-  // Private builds are only visible to their owner
-  if (!build.isPublic && build.user.toString() !== requestingUserId) {
+  // Private builds are only visible to their owner.
+  // build.user is a populated object after findBuildById, so extract _id explicitly.
+  const buildOwnerId =
+    typeof build.user === 'object' && build.user !== null
+      ? String((build.user as { _id: unknown })._id)
+      : String(build.user);
+
+  if (!build.isPublic && buildOwnerId !== requestingUserId) {
     throw new AppError('Build not found', 404);
   }
 

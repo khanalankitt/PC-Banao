@@ -15,6 +15,23 @@ export const authenticate = asyncHandler(async (req: AuthRequest, _res: Response
   next();
 });
 
+// Attaches user to req if a valid token is present, but does not fail if absent.
+export const optionalAuthenticate = asyncHandler(async (req: AuthRequest, _res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (token) {
+    try {
+      const payload = jwt.verify(token, env.jwtSecret) as AuthPayload;
+      req.user = payload;
+    } catch {
+      // Invalid token — treat as unauthenticated
+    }
+  }
+
+  next();
+});
+
 export const authorize =
   (...roles: Array<'user' | 'admin'>) =>
   (req: AuthRequest, _res: Response, next: NextFunction): void => {

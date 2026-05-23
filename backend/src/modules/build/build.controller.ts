@@ -29,7 +29,7 @@ export const listPublic = asyncHandler(async (req: AuthRequest, res: Response) =
 });
 
 export const getOne = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const build = await getBuildById(req.params['buildId'] as string, req.user!.userId);
+  const build = await getBuildById(req.params['buildId'] as string, req.user?.userId);
   sendSuccess(res, build, 'Build fetched');
 });
 

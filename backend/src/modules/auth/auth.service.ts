@@ -13,7 +13,7 @@ export interface OAuthLoginInput {
 
 export interface AuthTokenResponse {
   token: string;
-  user: Pick<UserRow, 'name' | 'email' | 'image' | 'role'>;
+  user: Pick<UserRow, '_id' | 'name' | 'email' | 'image' | 'role'>;
 }
 
 function signJwt(payload: AuthPayload): string {
@@ -43,7 +43,7 @@ export async function loginWithOAuth(input: OAuthLoginInput): Promise<AuthTokenR
 
   return {
     token,
-    user: { name: user.name, email: user.email, image: user.image, role: user.role },
+    user: { _id: user._id, name: user.name, email: user.email, image: user.image, role: user.role },
   };
 }
 

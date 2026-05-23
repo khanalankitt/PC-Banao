@@ -15,7 +15,11 @@ export function validate(schema: ZodSchema, part: RequestPart = 'body') {
       sendError(res, 'Validation failed', 422, errors);
       return;
     }
-    req[part] = result.data;
+    if (part === 'body') {
+      req.body = result.data;
+    } else {
+      Object.defineProperty(req, part, { value: result.data, writable: true, configurable: true });
+    }
     next();
   };
 }

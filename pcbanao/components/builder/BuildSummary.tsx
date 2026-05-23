@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useBuilderStore } from '@/store/builderStore';
 import { createBuild, updateBuild, IBuildComponents } from '@/lib/api/buildApi';
 import { IPart } from '@/lib/api/productApi';
+import api from '@/lib/api/axios';
 
 // ─── Wattage thresholds ───────────────────────────────────────────────────────
 
@@ -18,6 +20,7 @@ function wattageColor(w: number): string {
 
 export default function BuildSummary() {
   const { data: session } = useSession();
+  const router = useRouter();
   const {
     buildId, buildName, isPublic,
     slots, totalPrice, totalWattage,
@@ -27,6 +30,67 @@ export default function BuildSummary() {
   } = useBuilderStore();
 
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveWarn, setSaveWarn] = useState<string | null>(null);
+
+  // Live compatibility state
+  const [compatIssues, setCompatIssues] = useState<string[]>([]);
+  const [compatWarnings, setCompatWarnings] = useState<string[]>([]);
+  const [compatLoading, setCompatLoading] = useState(false);
+  const compatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced compatibility check whenever slots change
+  useEffect(() => {
+    const ids = {
+      cpu:         slots.cpu?._id,
+      gpu:         slots.gpu?._id,
+      motherboard: slots.motherboard?._id,
+      psu:         slots.psu?._id,
+      case:        slots.case?._id,
+      cooler:      slots.cooler?._id,
+      ram:         slots.ram.map(p => p._id).filter(Boolean),
+      storage:     slots.storage.map(p => p._id).filter(Boolean),
+    };
+
+    // Need at least two parts to check compatibility
+    const filledCount = [ids.cpu, ids.gpu, ids.motherboard, ids.psu, ids.case, ids.cooler]
+      .filter(Boolean).length + (ids.ram.length > 0 ? 1 : 0) + (ids.storage.length > 0 ? 1 : 0);
+
+    if (filledCount < 2) {
+      setCompatIssues([]);
+      setCompatWarnings([]);
+      return;
+    }
+
+    if (compatTimer.current) clearTimeout(compatTimer.current);
+    compatTimer.current = setTimeout(async () => {
+      setCompatLoading(true);
+      try {
+        // Strip empty arrays and undefined before sending
+        const body: Record<string, unknown> = {};
+        if (ids.cpu)         body.cpu         = ids.cpu;
+        if (ids.gpu)         body.gpu         = ids.gpu;
+        if (ids.motherboard) body.motherboard = ids.motherboard;
+        if (ids.psu)         body.psu         = ids.psu;
+        if (ids.case)        body.case        = ids.case;
+        if (ids.cooler)      body.cooler      = ids.cooler;
+        if (ids.ram.length)  body.ram         = ids.ram;
+        if (ids.storage.length) body.storage  = ids.storage;
+
+        const res = await api.post('/api/compatibility/check', body);
+        if (res.data?.success) {
+          setCompatIssues(res.data.data?.issues ?? []);
+          setCompatWarnings(res.data.data?.warnings ?? []);
+        }
+      } catch {
+        // Silently ignore — compatibility check is best-effort
+      } finally {
+        setCompatLoading(false);
+      }
+    }, 600);
+
+    return () => { if (compatTimer.current) clearTimeout(compatTimer.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slots]);
 
   // Count filled slots
   const filledSingle = (['cpu', 'gpu', 'motherboard', 'psu', 'case', 'cooler'] as const)
@@ -47,9 +111,29 @@ export default function BuildSummary() {
   const componentDraw = totalWattage - psuWattage;
   const psuOk = psuWattage === 0 || psuWattage >= componentDraw * 1.2;
 
+  function saveLocally(name: string, id: string | null): string {
+    const localId = id ?? `local_${Date.now()}`;
+    const record = {
+      _id: localId, name,
+      slots: JSON.parse(JSON.stringify(slots)),
+      totalPrice, totalWattage, isPublic,
+      savedAt: new Date().toISOString(),
+    };
+    try {
+      const existing: Record<string, unknown>[] = JSON.parse(
+        localStorage.getItem('pcbanao_builds') ?? '[]',
+      );
+      const idx = existing.findIndex((b) => (b as { _id: string })._id === localId);
+      if (idx >= 0) existing[idx] = record; else existing.push(record);
+      localStorage.setItem('pcbanao_builds', JSON.stringify(existing));
+    } catch { /* storage unavailable */ }
+    return localId;
+  }
+
   async function handleSave() {
     if (!session) return;
     setSaveError(null);
+    setSaveWarn(null);
     setIsSaving(true);
 
     const components: IBuildComponents = {
@@ -62,24 +146,39 @@ export default function BuildSummary() {
       case:        slots.case?._id,
       cooler:      slots.cooler?._id,
     };
-    // Strip undefined keys
     Object.keys(components).forEach((k) => {
       const key = k as keyof IBuildComponents;
-      if (components[key] === undefined || (Array.isArray(components[key]) && (components[key] as string[]).length === 0)) {
-        delete components[key];
-      }
+      if (
+        components[key] === undefined ||
+        (Array.isArray(components[key]) && (components[key] as string[]).length === 0)
+      ) delete components[key];
     });
 
     try {
       if (buildId) {
         await updateBuild(buildId, { name: buildName, components, isPublic });
+        setLastSaved(new Date());
+        router.push(`/builds/${buildId}`);
+        return;
       } else {
         const saved = await createBuild({ name: buildName, components, isPublic });
         setBuildId(saved._id);
       }
       setLastSaved(new Date());
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save build');
+      const axiosErr = err as { response?: { data?: { message?: string; errors?: { field: string; message: string }[] } }; code?: string };
+      if (axiosErr?.response) {
+        const { message, errors } = axiosErr.response.data ?? {};
+        console.error('[BuildSummary] save error', axiosErr.response.data);
+        const detail = errors?.map(e => `${e.field}: ${e.message}`).join('; ');
+        setSaveError(detail ? `${message ?? 'Save failed'} — ${detail}` : (message ?? 'Save failed'));
+      } else {
+        // Network unreachable — persist locally
+        const localId = saveLocally(buildName, buildId);
+        if (!buildId) setBuildId(localId);
+        setLastSaved(new Date());
+        setSaveWarn('Server unreachable — saved locally on this device.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -206,6 +305,25 @@ export default function BuildSummary() {
           )}
         </div>
 
+        {/* Compatibility issues */}
+        {(compatIssues.length > 0 || compatWarnings.length > 0) && (
+          <div style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {compatIssues.map((issue, i) => (
+              <div key={i} style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '11px', color: '#fca5a5', lineHeight: 1.4 }}>
+                ✗ {issue}
+              </div>
+            ))}
+            {compatWarnings.map((warn, i) => (
+              <div key={i} style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', fontSize: '11px', color: '#fde68a', lineHeight: 1.4 }}>
+                ⚠ {warn}
+              </div>
+            ))}
+          </div>
+        )}
+        {compatLoading && (
+          <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '10px' }}>Checking compatibility…</p>
+        )}
+
         {/* Minimum requirements warning */}
         {!isBuildable && totalFilled > 0 && (
           <div
@@ -244,6 +362,21 @@ export default function BuildSummary() {
             />
           </button>
         </div>
+
+        {/* Save warning (offline fallback) */}
+        {saveWarn && (
+          <div
+            style={{
+              padding: '9px 12px', borderRadius: '8px',
+              background: 'rgba(245,158,11,0.08)',
+              border: '1px solid rgba(245,158,11,0.25)',
+              marginBottom: '12px',
+              fontSize: '12px', color: '#fde68a',
+            }}
+          >
+            ⚠ {saveWarn}
+          </div>
+        )}
 
         {/* Save error */}
         {saveError && (

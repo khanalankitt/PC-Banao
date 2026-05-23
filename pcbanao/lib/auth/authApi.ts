@@ -1,6 +1,7 @@
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000';
 
 export interface BackendUser {
+  _id?: string;
   name: string;
   email: string;
   image?: string;
