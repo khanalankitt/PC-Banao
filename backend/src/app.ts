@@ -10,7 +10,10 @@ import { errorMiddleware } from './shared/middlewares/error.middleware';
 import { AppError } from './shared/types';
 
 import { authRouter } from './modules/auth';
+import { buildRouter } from './modules/build';
 import { compatibilityRouter } from './modules/compatibility';
+import { productRouter } from './modules/product';
+import { userRouter } from './modules/user';
 
 const app = express();
 
@@ -34,6 +37,9 @@ app.use(
 
 // ─── routes ───────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
+app.use('/api/users', userRouter);
+app.use('/api/products', productRouter);
+app.use('/api/builds', buildRouter);
 app.use('/api/compatibility', compatibilityRouter);
 
 // 404 catch-all (must come after all routes)
