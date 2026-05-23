@@ -87,33 +87,42 @@ export default function Navbar() {
             />
           ) : session ? (
             <div className="flex items-center gap-3">
-              {session.user?.image && (
+              {/* Avatar or initials */}
+              {session.user?.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={session.user.image}
-                  alt={session.user.name ?? "User avatar"}
-                  className="w-7 h-7 rounded-full"
-                  style={{ border: "1px solid var(--border-logo)" }}
+                  alt={session.user.name ?? 'User avatar'}
+                  className="w-7 h-7 rounded-full object-cover"
+                  style={{ border: '1px solid var(--border-logo)' }}
                 />
+              ) : (
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                  style={{ background: 'var(--bg-logo)', border: '1px solid var(--border-logo)', color: 'var(--cyan)' }}
+                >
+                  {session.user?.name?.charAt(0).toUpperCase() ?? 'U'}
+                </div>
+              )}
+              {/* Name */}
+              {session.user?.name && (
+                <span className="text-xs font-medium hidden md:inline" style={{ color: 'var(--text-secondary)' }}>
+                  {session.user.name.split(' ')[0]}
+                </span>
               )}
               <button
-                onClick={() => signOut({ callbackUrl: "/" })}
+                onClick={() => signOut({ callbackUrl: '/' })}
                 className="text-xs font-medium tracking-widest uppercase transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded px-1"
-                style={{ color: "var(--text-muted)" }}
-                onMouseEnter={(e) =>
-                  ((e.target as HTMLElement).style.color =
-                    "var(--text-secondary)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.target as HTMLElement).style.color = "var(--text-muted)")
-                }
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={e => ((e.target as HTMLElement).style.color = 'var(--text-secondary)')}
+                onMouseLeave={e => ((e.target as HTMLElement).style.color = 'var(--text-muted)')}
               >
                 Sign out
               </button>
             </div>
           ) : (
             <button
-              onClick={() => signIn(undefined, { callbackUrl: "/" })}
+              onClick={() => signIn(undefined, { callbackUrl: '/builds' })}
               className="px-4 py-1.5 rounded cursor-pointer text-xs font-semibold tracking-wider uppercase transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
               style={{
                 background: "var(--bg-badge)",
@@ -182,7 +191,7 @@ export default function Navbar() {
             <button
               onClick={() => {
                 setMenuOpen(false);
-                signIn(undefined, { callbackUrl: "/" });
+                signIn(undefined, { callbackUrl: '/builds' });
               }}
               className="text-left text-sm cursor-pointer font-medium tracking-wider uppercase"
               style={{ color: "var(--cyan)" }}

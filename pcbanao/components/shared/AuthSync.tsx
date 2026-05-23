@@ -9,8 +9,10 @@ export default function AuthSync() {
   const { setAuth, clearAuth } = useAuthStore();
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.backendToken && session?.user) {
-      setAuth(session.user, session.backendToken);
+    if (status === 'authenticated' && session?.user) {
+      // backendToken may be undefined if the backend was unreachable at sign-in;
+      // still sync the user so the UI shows name/avatar correctly.
+      setAuth(session.user, session.backendToken ?? '');
     } else if (status === 'unauthenticated') {
       clearAuth();
     }

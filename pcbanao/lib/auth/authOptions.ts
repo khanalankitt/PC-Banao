@@ -8,6 +8,10 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId:     process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      // Request offline access so we always get an access_token
+      authorization: {
+        params: { access_type: 'offline', prompt: 'consent' },
+      },
     }),
     FacebookProvider({
       clientId:     process.env.FACEBOOK_APP_ID!,
@@ -17,26 +21,46 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async signIn({ account }) {
-      // Only allow configured providers; block any unexpected ones
       return account?.provider === 'google' || account?.provider === 'facebook';
     },
 
-    async jwt({ token, account }) {
-      // On initial sign-in, exchange the provider access token for our backend JWT
-      if (account?.access_token) {
-        const result = await exchangeOAuthToken(
-          account.provider as 'google' | 'facebook',
-          account.access_token,
-        );
+    async jwt({ token, account, profile }) {
+      // Only run on initial sign-in — when account is present
+      if (!account) return token;
+
+      const provider = account.provider as 'google' | 'facebook';
+
+      // For Google prefer id_token (self-contained JWT with user info),
+      // fall back to access_token. For Facebook use access_token.
+      const tokenToExchange =
+        provider === 'google'
+          ? (account.id_token ?? account.access_token ?? '')
+          : (account.access_token ?? '');
+
+      try {
+        const result = await exchangeOAuthToken(provider, tokenToExchange);
         token.backendToken = result.token;
         token.user = result.user;
+      } catch (err) {
+        // Backend unreachable — populate user from NextAuth profile so
+        // the session still works and the user is shown as logged in.
+        console.error('[Auth] backend exchange failed, using provider profile:', err);
+        const p = profile as Record<string, unknown> | undefined;
+        token.user = {
+          name:  (p?.name ?? p?.given_name ?? token.name ?? 'User') as string,
+          email: (p?.email ?? token.email ?? '') as string,
+          image: (p?.picture ?? p?.image ?? token.picture ?? undefined) as string | undefined,
+          role:  'user',
+        };
+        // leave token.backendToken undefined — session callback guards against it
       }
+
       return token;
     },
 
     async session({ session, token }) {
-      session.backendToken = token.backendToken as string;
-      session.user = token.user as typeof session.user;
+      if (token.user) session.user  = token.user as typeof session.user;
+      if (token.backendToken) session.backendToken = token.backendToken as string;
       return session;
     },
   },

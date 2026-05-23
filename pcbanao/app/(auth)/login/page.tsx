@@ -15,9 +15,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true);
-    if (status === 'authenticated') router.replace('/');
+  }, []);
+
+  useEffect(() => {
+    if (status === 'authenticated') router.replace('/builds');
   }, [status, router]);
 
+  if (status === 'loading') return null;
   if (status === 'authenticated') return null;
 
   return (
@@ -165,13 +169,13 @@ export default function LoginPage() {
               provider="google"
               label="Continue with Google"
               icon={<GoogleIcon />}
-              callbackUrl="/"
+              callbackUrl="/builds"
             />
             <OAuthButton
               provider="facebook"
               label="Continue with Facebook"
               icon={<FacebookIcon />}
-              callbackUrl="/"
+              callbackUrl="/builds"
             />
           </div>
 
