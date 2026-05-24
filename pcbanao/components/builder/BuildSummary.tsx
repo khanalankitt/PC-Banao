@@ -8,12 +8,24 @@ import { createBuild, updateBuild, IBuildComponents } from '@/lib/api/buildApi';
 import { IPart } from '@/lib/api/productApi';
 import api from '@/lib/api/axios';
 
-// ─── Wattage thresholds ───────────────────────────────────────────────────────
-
 function wattageColor(w: number): string {
-  if (w < 400) return 'var(--neon-green)';
-  if (w < 700) return '#f59e0b';
-  return '#ef4444';
+  if (w < 400) return '#34d399';
+  if (w < 700) return '#fbbf24';
+  return '#f87171';
+}
+
+// ─── Section label ────────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em',
+      textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)',
+      marginBottom: '8px',
+    }}>
+      {children}
+    </div>
+  );
 }
 
 // ─── Build Summary ────────────────────────────────────────────────────────────
@@ -31,14 +43,11 @@ export default function BuildSummary() {
 
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveWarn, setSaveWarn] = useState<string | null>(null);
-
-  // Live compatibility state
   const [compatIssues, setCompatIssues] = useState<string[]>([]);
   const [compatWarnings, setCompatWarnings] = useState<string[]>([]);
   const [compatLoading, setCompatLoading] = useState(false);
   const compatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced compatibility check whenever slots change
   useEffect(() => {
     const ids = {
       cpu:         slots.cpu?._id,
@@ -51,7 +60,6 @@ export default function BuildSummary() {
       storage:     slots.storage.map(p => p._id).filter(Boolean),
     };
 
-    // Need at least two parts to check compatibility
     const filledCount = [ids.cpu, ids.gpu, ids.motherboard, ids.psu, ids.case, ids.cooler]
       .filter(Boolean).length + (ids.ram.length > 0 ? 1 : 0) + (ids.storage.length > 0 ? 1 : 0);
 
@@ -65,16 +73,15 @@ export default function BuildSummary() {
     compatTimer.current = setTimeout(async () => {
       setCompatLoading(true);
       try {
-        // Strip empty arrays and undefined before sending
         const body: Record<string, unknown> = {};
-        if (ids.cpu)         body.cpu         = ids.cpu;
-        if (ids.gpu)         body.gpu         = ids.gpu;
-        if (ids.motherboard) body.motherboard = ids.motherboard;
-        if (ids.psu)         body.psu         = ids.psu;
-        if (ids.case)        body.case        = ids.case;
-        if (ids.cooler)      body.cooler      = ids.cooler;
-        if (ids.ram.length)  body.ram         = ids.ram;
-        if (ids.storage.length) body.storage  = ids.storage;
+        if (ids.cpu)            body.cpu         = ids.cpu;
+        if (ids.gpu)            body.gpu         = ids.gpu;
+        if (ids.motherboard)    body.motherboard = ids.motherboard;
+        if (ids.psu)            body.psu         = ids.psu;
+        if (ids.case)           body.case        = ids.case;
+        if (ids.cooler)         body.cooler      = ids.cooler;
+        if (ids.ram.length)     body.ram         = ids.ram;
+        if (ids.storage.length) body.storage     = ids.storage;
 
         const res = await api.post('/api/compatibility/check', body);
         if (res.data?.success) {
@@ -82,7 +89,7 @@ export default function BuildSummary() {
           setCompatWarnings(res.data.data?.warnings ?? []);
         }
       } catch {
-        // Silently ignore — compatibility check is best-effort
+        // Best-effort; silently ignore
       } finally {
         setCompatLoading(false);
       }
@@ -92,21 +99,17 @@ export default function BuildSummary() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots]);
 
-  // Count filled slots
   const filledSingle = (['cpu', 'gpu', 'motherboard', 'psu', 'case', 'cooler'] as const)
     .filter((s) => slots[s] !== null).length;
   const filledMulti = ([...slots.ram, ...slots.storage] as IPart[]).length;
   const totalFilled = filledSingle + filledMulti;
-  const totalSlots = 8; // 6 single + 2 multi (each counts as 1 slot category)
+  const totalSlots = 8;
   const filledCategories = filledSingle
     + (slots.ram.length > 0 ? 1 : 0)
     + (slots.storage.length > 0 ? 1 : 0);
   const progress = Math.round((filledCategories / totalSlots) * 100);
 
-  // Build completeness: cpu + gpu + motherboard + psu as minimum
   const isBuildable = !!(slots.cpu && slots.gpu && slots.motherboard && slots.psu);
-
-  // PSU check: psu wattage should exceed component draw by 20%
   const psuWattage = slots.psu?.wattage ?? 0;
   const componentDraw = totalWattage - psuWattage;
   const psuOk = psuWattage === 0 || psuWattage >= componentDraw * 1.2;
@@ -169,11 +172,9 @@ export default function BuildSummary() {
       const axiosErr = err as { response?: { data?: { message?: string; errors?: { field: string; message: string }[] } }; code?: string };
       if (axiosErr?.response) {
         const { message, errors } = axiosErr.response.data ?? {};
-        console.error('[BuildSummary] save error', axiosErr.response.data);
         const detail = errors?.map(e => `${e.field}: ${e.message}`).join('; ');
         setSaveError(detail ? `${message ?? 'Save failed'} — ${detail}` : (message ?? 'Save failed'));
       } else {
-        // Network unreachable — persist locally
         const localId = saveLocally(buildName, buildId);
         if (!buildId) setBuildId(localId);
         setLastSaved(new Date());
@@ -184,211 +185,206 @@ export default function BuildSummary() {
     }
   }
 
+  const progressColor = progress === 100
+    ? '#34d399'
+    : progress > 50
+    ? 'var(--cyan)'
+    : 'rgba(0,212,255,0.6)';
+
   return (
-    <div
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        backdropFilter: 'blur(20px)',
-      }}
-    >
+    <div style={{
+      background: 'linear-gradient(160deg, #0c1420 0%, #080d14 100%)',
+      border: '1px solid rgba(255,255,255,0.07)',
+      borderRadius: '14px',
+      overflow: 'hidden',
+      boxShadow: '0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)',
+    }}>
+
       {/* Header */}
-      <div
-        style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid var(--border-divider)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
-          Build Summary
-        </h2>
+      <div style={{
+        padding: '14px 18px',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>
+          Summary
+        </span>
         {lastSavedAt && (
-          <span style={{ fontSize: '10px', color: 'var(--neon-green)' }}>
-            ✓ Saved {lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          <span style={{ fontSize: '10px', color: '#34d399', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#34d399', display: 'inline-block', boxShadow: '0 0 6px #34d399' }} />
+            Saved {lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
       </div>
 
-      <div style={{ padding: '20px' }}>
+      <div style={{ padding: '18px' }}>
+
         {/* Build name */}
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '6px' }}>
-            Build Name
-          </label>
+        <div style={{ marginBottom: '18px' }}>
+          <SectionLabel>Build name</SectionLabel>
           <input
             type="text"
             value={buildName}
             onChange={(e) => setBuildName(e.target.value)}
             style={{
               width: '100%',
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid var(--border-subtle)',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: '8px',
               padding: '8px 12px',
               color: 'var(--text-primary)',
               fontSize: '13px', outline: 'none',
-              fontWeight: 600,
+              fontWeight: 600, transition: 'border-color 0.15s',
             }}
           />
         </div>
 
-        {/* Progress bar */}
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Completion</span>
-            <span style={{ fontSize: '11px', color: 'var(--cyan)', fontWeight: 700 }}>{progress}%</span>
-          </div>
-          <div style={{ height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
-            <div
-              style={{
-                height: '100%', borderRadius: '2px',
-                width: `${progress}%`,
-                background: progress === 100
-                  ? 'var(--neon-green)'
-                  : 'linear-gradient(90deg, var(--cyan), var(--violet))',
-                transition: 'width 0.4s ease',
-                boxShadow: progress === 100 ? '0 0 8px var(--neon-green)' : '0 0 8px var(--cyan-glow)',
-              }}
-            />
-          </div>
-          <p style={{ margin: '5px 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>
-            {filledCategories} of {totalSlots} slots filled
-          </p>
-        </div>
-
-        {/* Price */}
-        <div
-          style={{
-            padding: '12px 14px', borderRadius: '10px',
-            background: 'rgba(0,212,255,0.05)',
-            border: '1px solid rgba(0,212,255,0.12)',
-            marginBottom: '10px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}
-        >
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Total Price</span>
-          <span style={{ fontSize: '22px', fontWeight: 900, color: 'var(--cyan)', letterSpacing: '-0.02em' }}>
-            ${totalPrice.toLocaleString()}
-          </span>
-        </div>
-
-        {/* Wattage */}
-        <div
-          style={{
-            padding: '12px 14px', borderRadius: '10px',
-            background: 'rgba(249,115,22,0.05)',
-            border: `1px solid ${psuOk ? 'rgba(249,115,22,0.15)' : 'rgba(239,68,68,0.3)'}`,
-            marginBottom: '16px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: psuWattage > 0 ? '6px' : 0 }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Component Draw</span>
-            <span style={{ fontSize: '16px', fontWeight: 800, color: wattageColor(componentDraw), letterSpacing: '-0.01em' }}>
-              ⚡ {componentDraw}W
+        {/* Progress */}
+        <div style={{ marginBottom: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+            <SectionLabel>Completion</SectionLabel>
+            <span style={{ fontSize: '12px', fontWeight: 800, color: progressColor, letterSpacing: '-0.01em' }}>
+              {filledCategories}/{totalSlots}
             </span>
           </div>
-          {psuWattage > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>PSU capacity</span>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: psuOk ? 'var(--neon-green)' : '#ef4444' }}>
-                {psuWattage}W {psuOk ? '✓' : '⚠'}
-              </span>
-            </div>
-          )}
-          {!psuOk && (
-            <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#fca5a5', lineHeight: 1.4 }}>
-              PSU may be insufficient. Recommend {Math.ceil(componentDraw * 1.2 / 50) * 50}W+.
-            </p>
-          )}
+          <div style={{ height: '3px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', borderRadius: '2px',
+              width: `${progress}%`,
+              background: progress === 100
+                ? '#34d399'
+                : 'linear-gradient(90deg, var(--cyan) 0%, #a78bfa 100%)',
+              transition: 'width 0.4s cubic-bezier(0.4,0,0.2,1)',
+            }} />
+          </div>
         </div>
 
-        {/* Compatibility issues */}
+        {/* Divider */}
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.04)', margin: '0 -18px 18px' }} />
+
+        {/* Price + Wattage */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+          <div style={{
+            padding: '12px', borderRadius: '10px',
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+          }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: '6px' }}>
+              Total
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1 }}>
+              ${totalPrice.toLocaleString()}
+            </div>
+          </div>
+          <div style={{
+            padding: '12px', borderRadius: '10px',
+            background: 'rgba(255,255,255,0.02)',
+            border: `1px solid ${psuOk ? 'rgba(255,255,255,0.05)' : 'rgba(248,113,113,0.2)'}`,
+          }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: '6px' }}>
+              Draw
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: 900, color: wattageColor(componentDraw), letterSpacing: '-0.03em', lineHeight: 1 }}>
+              {componentDraw}W
+            </div>
+            {psuWattage > 0 && (
+              <div style={{ fontSize: '10px', color: psuOk ? 'rgba(52,211,153,0.7)' : '#f87171', marginTop: '4px' }}>
+                {psuOk ? `${psuWattage}W PSU — ok` : `Need ${Math.ceil(componentDraw * 1.2 / 50) * 50}W+`}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Compatibility */}
         {(compatIssues.length > 0 || compatWarnings.length > 0) && (
-          <div style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
             {compatIssues.map((issue, i) => (
-              <div key={i} style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '11px', color: '#fca5a5', lineHeight: 1.4 }}>
-                ✗ {issue}
+              <div key={i} style={{
+                padding: '8px 10px', borderRadius: '7px',
+                background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.18)',
+                fontSize: '11px', color: '#fca5a5', lineHeight: 1.5,
+                display: 'flex', gap: '8px',
+              }}>
+                <span style={{ flexShrink: 0, opacity: 0.7 }}>✕</span>
+                {issue}
               </div>
             ))}
             {compatWarnings.map((warn, i) => (
-              <div key={i} style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', fontSize: '11px', color: '#fde68a', lineHeight: 1.4 }}>
-                ⚠ {warn}
+              <div key={i} style={{
+                padding: '8px 10px', borderRadius: '7px',
+                background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.18)',
+                fontSize: '11px', color: '#fde68a', lineHeight: 1.5,
+                display: 'flex', gap: '8px',
+              }}>
+                <span style={{ flexShrink: 0, opacity: 0.7 }}>!</span>
+                {warn}
               </div>
             ))}
           </div>
         )}
+
         {compatLoading && (
-          <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '10px' }}>Checking compatibility…</p>
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', marginBottom: '12px', letterSpacing: '0.05em' }}>
+            Checking compatibility…
+          </div>
         )}
 
-        {/* Minimum requirements warning */}
+        {/* Minimum requirements hint */}
         {!isBuildable && totalFilled > 0 && (
-          <div
-            style={{
-              padding: '10px 12px', borderRadius: '8px',
-              background: 'rgba(245,158,11,0.08)',
-              border: '1px solid rgba(245,158,11,0.25)',
-              marginBottom: '14px',
-            }}
-          >
-            <p style={{ margin: 0, fontSize: '11px', color: '#fde68a', lineHeight: 1.5 }}>
-              ⚠ Add CPU, GPU, Motherboard, and PSU to save your build.
-            </p>
+          <div style={{
+            padding: '9px 11px', borderRadius: '8px',
+            background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)',
+            marginBottom: '14px', fontSize: '11px', color: '#fde68a', lineHeight: 1.5,
+          }}>
+            CPU, GPU, Motherboard, and PSU are required to save.
           </div>
         )}
 
         {/* Public toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Public build</span>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: '16px', padding: '10px 12px', borderRadius: '8px',
+          background: 'rgba(255,255,255,0.02)',
+        }}>
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Public build</div>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', marginTop: '1px' }}>
+              {isPublic ? 'Anyone can view this build' : 'Only you can see this'}
+            </div>
+          </div>
           <button
             onClick={() => setIsPublic(!isPublic)}
             style={{
-              width: '36px', height: '20px', borderRadius: '10px', padding: 0, border: 'none',
-              background: isPublic ? 'var(--neon-green)' : 'rgba(255,255,255,0.1)',
-              cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+              width: '38px', height: '22px', borderRadius: '11px', padding: 0, border: 'none',
+              background: isPublic ? '#34d399' : 'rgba(255,255,255,0.1)',
+              cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
             }}
           >
-            <div
-              style={{
-                width: '14px', height: '14px', borderRadius: '50%',
-                background: '#fff', position: 'absolute', top: '3px',
-                left: isPublic ? '19px' : '3px',
-                transition: 'left 0.2s',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
-              }}
-            />
+            <div style={{
+              width: '16px', height: '16px', borderRadius: '50%',
+              background: '#fff', position: 'absolute', top: '3px',
+              left: isPublic ? '19px' : '3px',
+              transition: 'left 0.18s',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            }} />
           </button>
         </div>
 
-        {/* Save warning (offline fallback) */}
+        {/* Alerts */}
         {saveWarn && (
-          <div
-            style={{
-              padding: '9px 12px', borderRadius: '8px',
-              background: 'rgba(245,158,11,0.08)',
-              border: '1px solid rgba(245,158,11,0.25)',
-              marginBottom: '12px',
-              fontSize: '12px', color: '#fde68a',
-            }}
-          >
-            ⚠ {saveWarn}
+          <div style={{
+            padding: '9px 11px', borderRadius: '8px',
+            background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)',
+            marginBottom: '10px', fontSize: '11px', color: '#fde68a',
+          }}>
+            {saveWarn}
           </div>
         )}
-
-        {/* Save error */}
         {saveError && (
-          <div
-            style={{
-              padding: '9px 12px', borderRadius: '8px',
-              background: 'rgba(239,68,68,0.1)',
-              border: '1px solid rgba(239,68,68,0.25)',
-              marginBottom: '12px',
-              fontSize: '12px', color: '#fca5a5',
-            }}
-          >
+          <div style={{
+            padding: '9px 11px', borderRadius: '8px',
+            background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.18)',
+            marginBottom: '10px', fontSize: '11px', color: '#fca5a5',
+          }}>
             {saveError}
           </div>
         )}
@@ -399,42 +395,41 @@ export default function BuildSummary() {
             onClick={handleSave}
             disabled={isSaving || !isBuildable}
             style={{
-              width: '100%', padding: '12px 0', borderRadius: '10px',
+              width: '100%', padding: '11px 0', borderRadius: '9px',
               background: isBuildable
                 ? isSaving
-                  ? 'rgba(0,212,255,0.3)'
-                  : 'var(--cyan)'
-                : 'rgba(255,255,255,0.06)',
-              border: isBuildable ? 'none' : '1px solid rgba(255,255,255,0.1)',
-              color: isBuildable ? '#020408' : 'var(--text-muted)',
-              fontSize: '13px', fontWeight: 800, letterSpacing: '0.08em',
+                  ? 'rgba(0,212,255,0.25)'
+                  : 'linear-gradient(135deg, var(--cyan) 0%, #38bdf8 100%)'
+                : 'rgba(255,255,255,0.04)',
+              border: isBuildable ? 'none' : '1px solid rgba(255,255,255,0.07)',
+              color: isBuildable ? '#020408' : 'rgba(255,255,255,0.25)',
+              fontSize: '12px', fontWeight: 800, letterSpacing: '0.1em',
               textTransform: 'uppercase',
               cursor: isBuildable && !isSaving ? 'pointer' : 'not-allowed',
-              transition: 'all 0.2s',
-              boxShadow: isBuildable && !isSaving ? '0 0 20px var(--cyan-glow)' : 'none',
+              transition: 'all 0.18s',
+              boxShadow: isBuildable && !isSaving ? '0 4px 20px rgba(0,212,255,0.25)' : 'none',
             }}
           >
             {isSaving ? 'Saving…' : buildId ? 'Update Build' : 'Save Build'}
           </button>
         ) : (
-          <div
-            style={{
-              padding: '12px', borderRadius: '10px',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid var(--border-subtle)',
-              textAlign: 'center',
-            }}
-          >
-            <p style={{ margin: '0 0 8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-              Sign in to save your build
+          <div style={{
+            padding: '14px', borderRadius: '10px',
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            textAlign: 'center',
+          }}>
+            <p style={{ margin: '0 0 10px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Sign in to save and share your build
             </p>
             <a
               href="/api/auth/signin"
               style={{
-                display: 'inline-block', padding: '8px 20px', borderRadius: '8px',
-                background: 'var(--cyan)', color: '#020408',
-                fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em',
-                textDecoration: 'none', textTransform: 'uppercase',
+                display: 'inline-block', padding: '8px 22px', borderRadius: '7px',
+                background: 'linear-gradient(135deg, var(--cyan) 0%, #38bdf8 100%)',
+                color: '#020408', fontSize: '11px', fontWeight: 800,
+                letterSpacing: '0.1em', textDecoration: 'none', textTransform: 'uppercase',
+                boxShadow: '0 4px 16px rgba(0,212,255,0.2)',
               }}
             >
               Sign in
@@ -448,23 +443,23 @@ export default function BuildSummary() {
             onClick={resetBuild}
             style={{
               width: '100%', marginTop: '8px', padding: '8px 0', borderRadius: '8px',
-              background: 'transparent',
-              border: '1px solid rgba(239,68,68,0.2)',
-              color: 'rgba(239,68,68,0.7)',
+              background: 'transparent', border: '1px solid rgba(248,113,113,0.15)',
+              color: 'rgba(248,113,113,0.5)',
               fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em',
-              textTransform: 'uppercase', cursor: 'pointer',
-              transition: 'all 0.15s',
+              textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.12s',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(239,68,68,0.08)';
-              e.currentTarget.style.color = '#ef4444';
+              e.currentTarget.style.background = 'rgba(248,113,113,0.06)';
+              e.currentTarget.style.color = '#f87171';
+              e.currentTarget.style.borderColor = 'rgba(248,113,113,0.3)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'rgba(239,68,68,0.7)';
+              e.currentTarget.style.color = 'rgba(248,113,113,0.5)';
+              e.currentTarget.style.borderColor = 'rgba(248,113,113,0.15)';
             }}
           >
-            Reset Build
+            Clear Build
           </button>
         )}
       </div>
