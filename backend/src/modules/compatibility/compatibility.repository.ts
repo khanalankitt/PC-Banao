@@ -8,6 +8,7 @@ export type PartRow = {
   _id: mongoose.Types.ObjectId;
   name: string;
   category: PartCategory;
+  wattage: number;
   specs: IPartSpecs;
 };
 
@@ -17,12 +18,12 @@ export type BuildRow = {
 };
 
 export async function findPartById(id: mongoose.Types.ObjectId): Promise<PartRow | null> {
-  return Part.findById(id).select('name category specs').lean<PartRow>();
+  return Part.findById(id).select('name category wattage specs').lean<PartRow>();
 }
 
 export async function findPartsByIds(ids: mongoose.Types.ObjectId[]): Promise<PartRow[]> {
   if (ids.length === 0) return [];
-  return Part.find({ _id: { $in: ids } }).select('name category specs').lean<PartRow[]>();
+  return Part.find({ _id: { $in: ids } }).select('name category wattage specs').lean<PartRow[]>();
 }
 
 export async function findBuildById(id: mongoose.Types.ObjectId): Promise<BuildRow | null> {

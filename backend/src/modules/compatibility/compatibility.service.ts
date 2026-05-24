@@ -90,15 +90,15 @@ function rulePsuWattage(
   issues: string[],
   warnings: string[],
 ): number {
-  const psuWattage = psu.specs.wattage ?? 0;
+  const psuWattage = psu.wattage > 0 ? psu.wattage : (psu.specs.wattage ?? 0);
 
   const estimated =
-    (parts.cpu?.specs.tdp    ?? WATTAGE_FALLBACKS.cpu    ?? 0) +
-    (parts.gpu?.specs.tdp    ?? WATTAGE_FALLBACKS.gpu    ?? 0) +
-    (WATTAGE_FALLBACKS.motherboard                        ?? 0) +
+    (parts.cpu    ? (parts.cpu.wattage    || WATTAGE_FALLBACKS.cpu    || 0) : (WATTAGE_FALLBACKS.cpu    ?? 0)) +
+    (parts.gpu    ? (parts.gpu.wattage    || WATTAGE_FALLBACKS.gpu    || 0) : (WATTAGE_FALLBACKS.gpu    ?? 0)) +
+    (WATTAGE_FALLBACKS.motherboard ?? 0) +
     parts.ramSticks.length   * (WATTAGE_FALLBACKS.ram    ?? 0) +
     parts.storageList.length * (WATTAGE_FALLBACKS.storage ?? 0) +
-    (parts.cooler?.specs.tdp ?? WATTAGE_FALLBACKS.cooler ?? 0);
+    (parts.cooler ? (parts.cooler.wattage || WATTAGE_FALLBACKS.cooler || 0) : (WATTAGE_FALLBACKS.cooler ?? 0));
 
   const recommended = Math.ceil(estimated * 1.2); // 20 % headroom is the industry standard
 
@@ -224,12 +224,12 @@ export async function runCompatibilityCheck(
   if (cpu && cooler)              ruleCoolerCpu(cpu, cooler, issues, warnings);
 
   const totalWattage =
-    (cpu?.specs.tdp    ?? WATTAGE_FALLBACKS.cpu    ?? 0) +
-    (gpu?.specs.tdp    ?? WATTAGE_FALLBACKS.gpu    ?? 0) +
-    (WATTAGE_FALLBACKS.motherboard                  ?? 0) +
+    (cpu    ? (cpu.wattage    || WATTAGE_FALLBACKS.cpu    || 0) : (WATTAGE_FALLBACKS.cpu    ?? 0)) +
+    (gpu    ? (gpu.wattage    || WATTAGE_FALLBACKS.gpu    || 0) : (WATTAGE_FALLBACKS.gpu    ?? 0)) +
+    (WATTAGE_FALLBACKS.motherboard ?? 0) +
     ramSticks.length   * (WATTAGE_FALLBACKS.ram    ?? 0) +
     storageList.length * (WATTAGE_FALLBACKS.storage ?? 0) +
-    (cooler?.specs.tdp ?? WATTAGE_FALLBACKS.cooler ?? 0);
+    (cooler ? (cooler.wattage || WATTAGE_FALLBACKS.cooler || 0) : (WATTAGE_FALLBACKS.cooler ?? 0));
 
   return { isCompatible: issues.length === 0, issues, warnings, totalWattage };
 }

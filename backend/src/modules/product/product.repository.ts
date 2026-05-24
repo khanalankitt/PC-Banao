@@ -39,14 +39,14 @@ export interface UpdatePartPayload {
   specs?: IPartSpecs;
 }
 
-const PART_FIELDS = 'name brand category price stock image specs rating reviewCount createdAt updatedAt';
+const PART_FIELDS = 'name brand category price stock image wattage specs rating reviewCount createdAt updatedAt';
 
 type PartFilter = {
   category?: PartCategory;
   brand?: InstanceType<typeof RegExp>;
   stock?: { $gt: number };
   price?: { $gte?: number; $lte?: number };
-  $or?: Array<{ name?: InstanceType<typeof RegExp>; brand?: InstanceType<typeof RegExp> }>;
+  $text?: { $search: string };
 };
 
 function buildFilter(filter: ProductFilter): PartFilter {
@@ -62,11 +62,9 @@ function buildFilter(filter: ProductFilter): PartFilter {
     if (filter.maxPrice !== undefined) query.price.$lte = filter.maxPrice;
   }
 
+  // Use MongoDB text index instead of regex — orders of magnitude faster
   if (filter.search) {
-    query.$or = [
-      { name:  new RegExp(filter.search, 'i') },
-      { brand: new RegExp(filter.search, 'i') },
-    ];
+    query.$text = { $search: filter.search };
   }
 
   return query;

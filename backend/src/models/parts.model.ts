@@ -71,6 +71,7 @@ export interface IPart extends Document {
   price: number;
   stock: number;
   image: string;
+  wattage: number;
   specs: IPartSpecs;
   rating: number;
   reviewCount: number;
@@ -78,20 +79,27 @@ export interface IPart extends Document {
 
 const PartSchema = new Schema<IPart>(
   {
-    name: { type: String, required: true },
-    brand: { type: String, required: true },
-    category: { type: String, enum: [...categories], required: true },
-    price: { type: Number, required: true },
-    stock: { type: Number, default: 0 },
-    image: { type: String },
-    specs: { type: Schema.Types.Mixed, required: true }, // flexible per category
-    rating: { type: Number, default: 0 },
+    name:        { type: String, required: true },
+    brand:       { type: String, required: true },
+    category:    { type: String, enum: [...categories], required: true },
+    price:       { type: Number, required: true },
+    stock:       { type: Number, default: 0 },
+    image:       { type: String },
+    wattage:     { type: Number, default: 0 },
+    specs:       { type: Schema.Types.Mixed, required: true },
+    rating:      { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
   },
   { timestamps: true },
 );
 
+// Compound index for the most common list query: filter by category, sort by price
 PartSchema.index({ category: 1, price: 1 });
+// Supports brand filter
 PartSchema.index({ brand: 1 });
+// Text index for search queries (replaces slow regex full-scans)
+PartSchema.index({ name: 'text', brand: 'text' });
+// Supports inStock filter combined with category
+PartSchema.index({ category: 1, stock: 1 });
 
 export default mongoose.model<IPart>("Part", PartSchema);

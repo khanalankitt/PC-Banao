@@ -10,24 +10,41 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-api.interceptors.request.use(async (config) => {
+// Cache the session in memory for 30 seconds to avoid a round-trip to
+// /api/auth/session before every single API call.
+let cachedToken: string | null = null;
+let cacheExpiresAt = 0;
+
+async function getToken(): Promise<string | null> {
+  if (cachedToken && Date.now() < cacheExpiresAt) return cachedToken;
   const session = await getSession();
-  if (session?.backendToken) {
-    config.headers.Authorization = `Bearer ${session.backendToken}`;
-  }
+  cachedToken = session?.backendToken ?? null;
+  cacheExpiresAt = Date.now() + 30_000;
+  return cachedToken;
+}
+
+export function invalidateTokenCache() {
+  cachedToken = null;
+  cacheExpiresAt = 0;
+}
+
+api.interceptors.request.use(async (config) => {
+  const token = await getToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
 api.interceptors.response.use(
   (response) => response,
   async (error: { response?: { status?: number }; config?: RetryableConfig }) => {
-    // On 401 with a stale token, force a fresh session fetch and retry once.
     if (error?.response?.status === 401 && !error?.config?._retried) {
       const cfg = error.config as RetryableConfig;
       cfg._retried = true;
-      const session = await getSession();
-      if (session?.backendToken) {
-        cfg.headers = { ...cfg.headers, Authorization: `Bearer ${session.backendToken}` };
+      // Force a fresh session fetch, bypassing the cache
+      invalidateTokenCache();
+      const token = await getToken();
+      if (token) {
+        cfg.headers = { ...cfg.headers, Authorization: `Bearer ${token}` };
         return api.request(cfg);
       }
     }
