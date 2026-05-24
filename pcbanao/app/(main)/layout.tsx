@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 
+const SITE_URL = 'https://pcbanao.khanalankit.com';
+
 export const metadata: Metadata = {
-  title: 'PC Banao — AI-Powered PC Builder',
-  description: 'Design, optimize, and build your perfect PC with AI-powered compatibility checking and a curated part catalog.',
+  alternates: { canonical: SITE_URL },
 };
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {

@@ -1,0 +1,16 @@
+{
+  "name": "PC Banao",
+  "short_name": "PC Banao",
+  "description": "Free AI-powered PC builder with instant compatibility checking and live wattage tracking.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020408",
+  "theme_color": "#00d4ff",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}
