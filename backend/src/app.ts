@@ -50,17 +50,21 @@ app.use((_req, _res, next) => {
 // ─── global error handler ─────────────────────────────────────────────────────
 app.use(errorMiddleware);
 
-// ─── bootstrap ────────────────────────────────────────────────────────────────
-async function bootstrap(): Promise<void> {
-  await connectDB();
-  app.listen(env.port, () => {
-    console.info(`[Server] running on port ${env.port} (${env.nodeEnv})`);
+// ─── bootstrap (local dev only) ───────────────────────────────────────────────
+// On Vercel the entry point is src/index.ts which connects and exports the app.
+// VERCEL env var is set automatically in the Vercel runtime.
+if (!process.env.VERCEL) {
+  const bootstrap = async (): Promise<void> => {
+    await connectDB();
+    app.listen(env.port, () => {
+      console.info(`[Server] running on port ${env.port} (${env.nodeEnv})`);
+    });
+  };
+
+  bootstrap().catch((err) => {
+    console.error('[Fatal] failed to start server:', err);
+    process.exit(1);
   });
 }
-
-bootstrap().catch((err) => {
-  console.error('[Fatal] failed to start server:', err);
-  process.exit(1);
-});
 
 export default app;
