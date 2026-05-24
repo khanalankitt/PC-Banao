@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useSession, signIn } from "next-auth/react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import Navbar from "@/components/landing/Navbar";
 import api from "@/lib/api/axios";
 import { useBuilderStore } from "@/store/builderStore";
@@ -459,6 +459,8 @@ export default function BuildsPage() {
   const [myBuilds, setMyBuilds] = useState<IBuild[]>([]);
   const [loadingCommunity, setLoadingCommunity] = useState(false);
   const [loadingMine, setLoadingMine] = useState(false);
+  const [mineError, setMineError] = useState<"auth" | "network" | null>(null);
+  const [mineRetryKey, setMineRetryKey] = useState(0);
 
   const totalBuilds = communityBuilds.length;
   const compatCount = communityBuilds.filter((b) => b.compatibility.isCompatible).length;
@@ -478,17 +480,30 @@ export default function BuildsPage() {
       .finally(() => setLoadingCommunity(false));
   }, []);
 
-  useEffect(() => {
+  const fetchMyBuilds = useCallback(() => {
     if (!session || activeTab !== "mine") return;
+    setMineError(null);
     setLoadingMine(true);
     api.get("/api/builds/mine")
       .then((res) => {
         if (res.data?.success && Array.isArray(res.data?.data))
           setMyBuilds(res.data.data.map(normaliseApiBuild));
+        else
+          setMineError("network");
       })
-      .catch(() => {})
+      .catch((err: { response?: { status?: number } }) => {
+        if (err?.response?.status === 401) {
+          setMineError("auth");
+        } else {
+          setMineError("network");
+        }
+      })
       .finally(() => setLoadingMine(false));
   }, [session, activeTab]);
+
+  useEffect(() => {
+    fetchMyBuilds();
+  }, [fetchMyBuilds, mineRetryKey]);
 
   const displayedBuilds = activeTab === "community" ? communityBuilds : myBuilds;
   const isLoading = activeTab === "community" ? loadingCommunity : loadingMine;
@@ -599,6 +614,44 @@ export default function BuildsPage() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} style={{ height: "320px", borderRadius: "14px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", animation: "pulseGlow 1.5s ease-in-out infinite", animationDelay: `${i * 100}ms` }} />
             ))}
+          </div>
+
+        ) : activeTab === "mine" && mineError === "auth" ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 24px", textAlign: "center" }}>
+            <div style={{ width: "48px", height: "48px", borderRadius: "12px", marginBottom: "18px", background: "rgba(248,113,113,0.06)", border: "1px solid rgba(248,113,113,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <h3 style={{ fontSize: "17px", fontWeight: 700, color: "#f0f8ff", margin: "0 0 8px" }}>Session expired</h3>
+            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "13px", maxWidth: "300px", lineHeight: 1.65, margin: "0 0 24px" }}>
+              Your login session expired. Sign in again to see your builds.
+            </p>
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              style={{ padding: "10px 26px", borderRadius: "8px", background: "linear-gradient(135deg, #22d3ee, #38bdf8)", border: "none", color: "#020408", fontSize: "12px", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}
+            >
+              Sign in again
+            </button>
+          </div>
+
+        ) : activeTab === "mine" && mineError === "network" ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 24px", textAlign: "center" }}>
+            <div style={{ width: "48px", height: "48px", borderRadius: "12px", marginBottom: "18px", background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
+              </svg>
+            </div>
+            <h3 style={{ fontSize: "17px", fontWeight: 700, color: "#f0f8ff", margin: "0 0 8px" }}>Couldn&apos;t load your builds</h3>
+            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "13px", maxWidth: "280px", lineHeight: 1.65, margin: "0 0 24px" }}>
+              There was a problem reaching the server.
+            </p>
+            <button
+              onClick={() => setMineRetryKey((k) => k + 1)}
+              style={{ padding: "10px 26px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#f0f8ff", fontSize: "12px", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
+            >
+              Retry
+            </button>
           </div>
 
         ) : activeTab === "mine" && displayedBuilds.length === 0 ? (
