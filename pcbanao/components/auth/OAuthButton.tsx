@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 
 interface Props {
-  provider: 'google' | 'facebook';
+  provider: 'google';
   label: string;
   icon: React.ReactNode;
   callbackUrl?: string;

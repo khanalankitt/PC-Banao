@@ -189,7 +189,7 @@ export default function HeroSection() {
 
           {/* Trust line */}
           <p className="mt-8 text-xs" style={{ color: 'var(--text-muted)' }}>
-            Sign in with Google or Facebook — no password, account created automatically.
+            Sign in with Google — no password, account created automatically.
           </p>
         </div>
       </div>

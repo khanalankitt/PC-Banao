@@ -55,7 +55,7 @@ export default function CtaSection() {
           className="text-base sm:text-lg leading-relaxed mb-12 max-w-md mx-auto"
           style={{ color: 'rgba(255,255,255,0.72)', textShadow: '0 1px 8px rgba(0,0,0,0.6)' }}
         >
-          Sign in once with Google or Facebook. No passwords, no forms.
+          Sign in once with Google. No passwords, no forms.
           Your account is created automatically on first sign-in.
         </p>
 

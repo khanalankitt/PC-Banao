@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import OAuthButton from '@/components/auth/OAuthButton';
 import GoogleIcon from '@/components/auth/GoogleIcon';
-import FacebookIcon from '@/components/auth/FacebookIcon';
 
 export default function LoginPage() {
   const { status } = useSession();
@@ -169,12 +168,6 @@ export default function LoginPage() {
               provider="google"
               label="Continue with Google"
               icon={<GoogleIcon />}
-              callbackUrl="/builds"
-            />
-            <OAuthButton
-              provider="facebook"
-              label="Continue with Facebook"
-              icon={<FacebookIcon />}
               callbackUrl="/builds"
             />
           </div>

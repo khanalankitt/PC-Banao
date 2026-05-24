@@ -3,11 +3,10 @@ import { env } from '../../config/env';
 import { AppError } from '../../shared/types';
 import { AuthPayload } from '../../shared/types';
 import { upsertOAuthUser, findUserById, UserRow } from './auth.repository';
-import { AuthProvider } from '../../models/user.model';
-import { verifyGoogleToken, verifyFacebookToken } from './auth.provider';
+import { verifyGoogleToken } from './auth.provider';
 
 export interface OAuthLoginInput {
-  provider: AuthProvider;
+  provider: 'google';
   accessToken: string;
 }
 
@@ -23,10 +22,7 @@ function signJwt(payload: AuthPayload): string {
 }
 
 export async function loginWithOAuth(input: OAuthLoginInput): Promise<AuthTokenResponse> {
-  const providerProfile =
-    input.provider === 'google'
-      ? await verifyGoogleToken(input.accessToken)
-      : await verifyFacebookToken(input.accessToken);
+  const providerProfile = await verifyGoogleToken(input.accessToken);
 
   const user = await upsertOAuthUser({
     provider:   input.provider,

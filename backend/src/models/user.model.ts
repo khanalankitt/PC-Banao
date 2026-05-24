@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type AuthProvider = 'google' | 'facebook';
+export type AuthProvider = 'google';
 
 export interface IUser extends Document {
   name: string;
@@ -19,7 +19,7 @@ const UserSchema = new Schema<IUser>(
     name:        { type: String, required: true, trim: true },
     email:       { type: String, required: true, unique: true, lowercase: true },
     image:       { type: String },
-    provider:    { type: String, enum: ['google', 'facebook'], required: true },
+    provider:    { type: String, enum: ['google'], required: true },
     providerId:  { type: String, required: true },
     role:        { type: String, enum: ['user', 'admin'], default: 'user' },
     savedBuilds: [{ type: Schema.Types.ObjectId, ref: 'Build' }],

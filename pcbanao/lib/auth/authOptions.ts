@@ -1,6 +1,5 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import FacebookProvider from 'next-auth/providers/facebook';
 import { exchangeOAuthToken } from '@/lib/auth/authApi';
 
 export const authOptions: NextAuthOptions = {
@@ -8,43 +7,36 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId:     process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      // Request offline access so we always get an access_token
       authorization: {
         params: { access_type: 'offline', prompt: 'consent' },
       },
-    }),
-    FacebookProvider({
-      clientId:     process.env.FACEBOOK_APP_ID!,
-      clientSecret: process.env.FACEBOOK_APP_SECRET!,
     }),
   ],
 
   callbacks: {
     async signIn({ account }) {
-      return account?.provider === 'google' || account?.provider === 'facebook';
+      return account?.provider === 'google';
     },
 
     async jwt({ token, account, profile }) {
-      // On initial sign-in, exchange the OAuth token for a backend JWT.
+      // On initial sign-in, persist the provider credentials and exchange for a backend JWT.
       if (account) {
-        const provider = account.provider as 'google' | 'facebook';
+        const provider = 'google' as const;
 
-        // For Google prefer id_token (self-contained JWT with user info),
-        // fall back to access_token. For Facebook use access_token.
-        const tokenToExchange =
-          provider === 'google'
-            ? (account.id_token ?? account.access_token ?? '')
-            : (account.access_token ?? '');
+        // Store provider credentials so the exchange can be retried on session refresh
+        // if the backend was temporarily unreachable during sign-in.
+        token.oauthProvider = provider;
+        token.oauthToken = account.id_token ?? account.access_token ?? '';
 
         try {
-          const result = await exchangeOAuthToken(provider, tokenToExchange);
+          const result = await exchangeOAuthToken(provider, token.oauthToken as string);
           token.backendToken = result.token;
           token.backendTokenIssuedAt = Date.now();
           token.user = result.user;
         } catch (err) {
-          // Backend unreachable — populate user from NextAuth profile so
-          // the session still works and the user is shown as logged in.
-          console.error('[Auth] backend exchange failed, using provider profile:', err);
+          // Backend unreachable at sign-in time — populate user from NextAuth profile
+          // so the session is usable. The exchange will be retried below on next refresh.
+          console.error('[Auth] backend exchange failed at sign-in:', err);
           const p = profile as Record<string, unknown> | undefined;
           token.user = {
             name:  (p?.name ?? p?.given_name ?? token.name ?? 'User') as string,
@@ -52,21 +44,34 @@ export const authOptions: NextAuthOptions = {
             image: (p?.picture ?? p?.image ?? token.picture ?? undefined) as string | undefined,
             role:  'user',
           };
-          // leave token.backendToken undefined — session callback guards against it
         }
 
         return token;
       }
 
-      // On subsequent calls (session refresh), re-issue the backend JWT
-      // if it is within 1 day of the 7-day expiry to stay ahead of expiry.
+      // On subsequent session refreshes, retry the backend exchange if backendToken
+      // is missing (backend was down at sign-in) or approaching its 7-day expiry.
       const issuedAt = token.backendTokenIssuedAt as number | undefined;
       const SIX_DAYS_MS = 6 * 24 * 60 * 60 * 1000;
-      if (issuedAt && Date.now() - issuedAt > SIX_DAYS_MS) {
-        // The backend token is 6+ days old — treat session as expired so
-        // the user gets a clean re-login rather than silent 401 errors.
-        token.backendToken = undefined;
-        token.backendTokenIssuedAt = undefined;
+      const needsRefresh = !token.backendToken || (issuedAt && Date.now() - issuedAt > SIX_DAYS_MS);
+
+      if (needsRefresh && token.oauthProvider && token.oauthToken) {
+        try {
+          const result = await exchangeOAuthToken(
+            token.oauthProvider as 'google' | 'facebook',
+            token.oauthToken as string,
+          );
+          token.backendToken = result.token;
+          token.backendTokenIssuedAt = Date.now();
+          token.user = result.user;
+        } catch {
+          // Still unreachable — clear the expired token so the UI shows "session expired"
+          // rather than silently sending a stale/missing token.
+          if (issuedAt && Date.now() - issuedAt > SIX_DAYS_MS) {
+            token.backendToken = undefined;
+            token.backendTokenIssuedAt = undefined;
+          }
+        }
       }
 
       return token;

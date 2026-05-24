@@ -12,6 +12,8 @@ declare module 'next-auth/jwt' {
   interface JWT extends DefaultJWT {
     backendToken?: string;
     backendTokenIssuedAt?: number;
+    oauthProvider?: string;
+    oauthToken?: string;
     user?: BackendUser;
   }
 }
