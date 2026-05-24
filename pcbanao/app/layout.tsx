@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import SessionProvider from "@/components/shared/SessionProvider";
+import QueryProvider from "@/components/shared/QueryProvider";
 import AuthSync from "@/components/shared/AuthSync";
 import "./globals.css";
 
@@ -87,10 +88,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <SessionProvider>
-          <AuthSync />
-          {children}
-        </SessionProvider>
+        <QueryProvider>
+          <SessionProvider>
+            <AuthSync />
+            {children}
+          </SessionProvider>
+        </QueryProvider>
       </body>
     </html>
   );

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, ReactElement } from 'react';
-import { IPart, listProducts } from '@/lib/api/productApi';
+import { useState, useEffect, ReactElement } from 'react';
+import { IPart } from '@/lib/api/productApi';
+import { useProducts } from '@/lib/queries/productQueries';
 import { SlotKey, useBuilderStore } from '@/store/builderStore';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -141,28 +142,14 @@ function PartPickerModal({ slot, onClose }: { slot: SlotKey; onClose: () => void
   const { setPart, setActiveSlot } = useBuilderStore();
   const meta = SLOT_META[slot];
 
-  const [parts, setParts] = useState<IPart[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const fetchParts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await listProducts({ category: slot, limit: 50 });
-      if (res.products.length > 0) {
-        setParts(res.products);
-      } else {
-        setParts(MOCK_PARTS.filter((p) => p.category === slot));
-      }
-    } catch {
-      setParts(MOCK_PARTS.filter((p) => p.category === slot));
-    } finally {
-      setLoading(false);
-    }
-  }, [slot]);
-
-  useEffect(() => { fetchParts(); }, [fetchParts]);
+  const { data, isLoading } = useProducts({ category: slot, limit: 50 });
+  const parts: IPart[] =
+    data && data.products.length > 0
+      ? data.products
+      : MOCK_PARTS.filter((p) => p.category === slot);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -235,7 +222,7 @@ function PartPickerModal({ slot, onClose }: { slot: SlotKey; onClose: () => void
               Select {meta.label}
             </h2>
             <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-              {meta.sublabel} · {loading ? 'Loading…' : `${filtered.length} available`}
+              {meta.sublabel} · {isLoading ? 'Loading…' : `${filtered.length} available`}
             </p>
           </div>
           <button
@@ -280,7 +267,7 @@ function PartPickerModal({ slot, onClose }: { slot: SlotKey; onClose: () => void
 
         {/* Part list */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 22px 20px' }}>
-          {loading ? (
+          {isLoading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '4px' }}>
               {[...Array(4)].map((_, i) => (
                 <div key={i} style={{ height: '68px', borderRadius: '10px', background: 'rgba(255,255,255,0.025)', animation: 'pulseGlow 1.5s ease-in-out infinite' }} />

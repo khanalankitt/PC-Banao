@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useBuilderStore } from '@/store/builderStore';
-import { createBuild, updateBuild, IBuildComponents } from '@/lib/api/buildApi';
+import { IBuildComponents } from '@/lib/api/buildApi';
 import { IPart } from '@/lib/api/productApi';
-import api from '@/lib/api/axios';
+import { useCompatibilityCheck, useCreateBuild, useUpdateBuild } from '@/lib/queries/buildQueries';
 
 function wattageColor(w: number): string {
   if (w < 400) return '#34d399';
@@ -36,68 +36,45 @@ export default function BuildSummary() {
   const {
     buildId, buildName, isPublic,
     slots, totalPrice, totalWattage,
-    isSaving, lastSavedAt,
+    lastSavedAt,
     setBuildId, setBuildName, setIsPublic,
-    setIsSaving, setLastSaved, resetBuild,
+    setLastSaved, resetBuild,
   } = useBuilderStore();
 
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveWarn, setSaveWarn] = useState<string | null>(null);
-  const [compatIssues, setCompatIssues] = useState<string[]>([]);
-  const [compatWarnings, setCompatWarnings] = useState<string[]>([]);
-  const [compatLoading, setCompatLoading] = useState(false);
-  const compatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce the component IDs so the compat query only fires 600 ms after slots settle
+  const [debouncedIds, setDebouncedIds] = useState<Record<string, unknown>>({});
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const ids = {
-      cpu:         slots.cpu?._id,
-      gpu:         slots.gpu?._id,
-      motherboard: slots.motherboard?._id,
-      psu:         slots.psu?._id,
-      case:        slots.case?._id,
-      cooler:      slots.cooler?._id,
-      ram:         slots.ram.map(p => p._id).filter(Boolean),
-      storage:     slots.storage.map(p => p._id).filter(Boolean),
-    };
+    const ids: Record<string, unknown> = {};
+    if (slots.cpu)         ids.cpu         = slots.cpu._id;
+    if (slots.gpu)         ids.gpu         = slots.gpu._id;
+    if (slots.motherboard) ids.motherboard = slots.motherboard._id;
+    if (slots.psu)         ids.psu         = slots.psu._id;
+    if (slots.case)        ids.case        = slots.case._id;
+    if (slots.cooler)      ids.cooler      = slots.cooler._id;
+    if (slots.ram.length)     ids.ram     = slots.ram.map((p) => p._id);
+    if (slots.storage.length) ids.storage = slots.storage.map((p) => p._id);
 
-    const filledCount = [ids.cpu, ids.gpu, ids.motherboard, ids.psu, ids.case, ids.cooler]
-      .filter(Boolean).length + (ids.ram.length > 0 ? 1 : 0) + (ids.storage.length > 0 ? 1 : 0);
-
-    if (filledCount < 2) {
-      setCompatIssues([]);
-      setCompatWarnings([]);
-      return;
-    }
-
-    if (compatTimer.current) clearTimeout(compatTimer.current);
-    compatTimer.current = setTimeout(async () => {
-      setCompatLoading(true);
-      try {
-        const body: Record<string, unknown> = {};
-        if (ids.cpu)            body.cpu         = ids.cpu;
-        if (ids.gpu)            body.gpu         = ids.gpu;
-        if (ids.motherboard)    body.motherboard = ids.motherboard;
-        if (ids.psu)            body.psu         = ids.psu;
-        if (ids.case)           body.case        = ids.case;
-        if (ids.cooler)         body.cooler      = ids.cooler;
-        if (ids.ram.length)     body.ram         = ids.ram;
-        if (ids.storage.length) body.storage     = ids.storage;
-
-        const res = await api.post('/api/compatibility/check', body);
-        if (res.data?.success) {
-          setCompatIssues(res.data.data?.issues ?? []);
-          setCompatWarnings(res.data.data?.warnings ?? []);
-        }
-      } catch {
-        // Best-effort; silently ignore
-      } finally {
-        setCompatLoading(false);
-      }
-    }, 600);
-
-    return () => { if (compatTimer.current) clearTimeout(compatTimer.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedIds(ids), 600);
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [slots]);
+
+  const filledCount = Object.keys(debouncedIds).length;
+  const { data: compatData, isFetching: compatLoading } = useCompatibilityCheck(
+    debouncedIds,
+    filledCount >= 2,
+  );
+  const compatIssues = compatData?.issues ?? [];
+  const compatWarnings = compatData?.warnings ?? [];
+
+  const createBuildMutation = useCreateBuild();
+  const updateBuildMutation = useUpdateBuild();
+  const isSaving = createBuildMutation.isPending || updateBuildMutation.isPending;
 
   const filledSingle = (['cpu', 'gpu', 'motherboard', 'psu', 'case', 'cooler'] as const)
     .filter((s) => slots[s] !== null).length;
@@ -133,12 +110,7 @@ export default function BuildSummary() {
     return localId;
   }
 
-  async function handleSave() {
-    if (!session) return;
-    setSaveError(null);
-    setSaveWarn(null);
-    setIsSaving(true);
-
+  function buildComponents(): IBuildComponents {
     const components: IBuildComponents = {
       cpu:         slots.cpu?._id,
       gpu:         slots.gpu?._id,
@@ -156,18 +128,26 @@ export default function BuildSummary() {
         (Array.isArray(components[key]) && (components[key] as string[]).length === 0)
       ) delete components[key];
     });
+    return components;
+  }
+
+  async function handleSave() {
+    if (!session) return;
+    setSaveError(null);
+    setSaveWarn(null);
+
+    const components = buildComponents();
 
     try {
       if (buildId) {
-        await updateBuild(buildId, { name: buildName, components, isPublic });
+        await updateBuildMutation.mutateAsync({ id: buildId, payload: { name: buildName, components, isPublic } });
         setLastSaved(new Date());
         router.push(`/builds/${buildId}`);
-        return;
       } else {
-        const saved = await createBuild({ name: buildName, components, isPublic });
+        const saved = await createBuildMutation.mutateAsync({ name: buildName, components, isPublic });
         setBuildId(saved._id);
+        setLastSaved(new Date());
       }
-      setLastSaved(new Date());
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string; errors?: { field: string; message: string }[] } }; code?: string };
       if (axiosErr?.response) {
@@ -180,8 +160,6 @@ export default function BuildSummary() {
         setLastSaved(new Date());
         setSaveWarn('Server unreachable — saved locally on this device.');
       }
-    } finally {
-      setIsSaving(false);
     }
   }
 
