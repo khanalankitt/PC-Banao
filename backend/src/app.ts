@@ -19,7 +19,19 @@ const app = express();
 
 // ─── security & parsing ───────────────────────────────────────────────────────
 app.use(helmet());
-app.use(cors({ origin: env.clientUrl, credentials: true }));
+const ALLOWED_ORIGINS = [
+  env.clientUrl,
+  'https://pcbanao.khanalankit.com',
+  'https://www.pcbanao.khanalankit.com',
+];
+app.use(cors({
+  origin: (origin, cb) => {
+    // allow server-to-server / curl with no origin header
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '10kb' }));
 app.use(cookieParser());
 

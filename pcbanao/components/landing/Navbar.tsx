@@ -199,12 +199,30 @@ export default function Navbar() {
               </Link>
             );
           })}
-          {!session && (
+          {session ? (
+            <>
+              <div className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                {session.user?.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={session.user.image} alt={session.user.name ?? 'User'} className="w-6 h-6 rounded-full object-cover" style={{ border: '1px solid var(--border-logo)' }} />
+                ) : (
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--bg-logo)', color: 'var(--cyan)' }}>
+                    {session.user?.name?.charAt(0).toUpperCase() ?? 'U'}
+                  </div>
+                )}
+                <span className="text-sm font-medium">{session.user?.name?.split(' ')[0]}</span>
+              </div>
+              <button
+                onClick={() => { setMenuOpen(false); signOut({ callbackUrl: '/' }); }}
+                className="text-left text-sm cursor-pointer font-medium tracking-wider uppercase"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
             <button
-              onClick={() => {
-                setMenuOpen(false);
-                signIn(undefined, { callbackUrl: '/builds' });
-              }}
+              onClick={() => { setMenuOpen(false); signIn(undefined, { callbackUrl: '/builds' }); }}
               className="text-left text-sm cursor-pointer font-medium tracking-wider uppercase"
               style={{ color: "var(--cyan)" }}
             >
