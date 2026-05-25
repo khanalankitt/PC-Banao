@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import SessionProvider from "@/components/shared/SessionProvider";
 import QueryProvider from "@/components/shared/QueryProvider";
 import AuthSync from "@/components/shared/AuthSync";
@@ -92,6 +93,19 @@ export default function RootLayout({
           <SessionProvider>
             <AuthSync />
             {children}
+            <Toaster
+              position="bottom-right"
+              theme="dark"
+              toastOptions={{
+                style: {
+                  background: '#0c1420',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#f0f8ff',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                },
+              }}
+            />
           </SessionProvider>
         </QueryProvider>
       </body>

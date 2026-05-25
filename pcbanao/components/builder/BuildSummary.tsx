@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { useBuilderStore } from '@/store/builderStore';
 import { IBuildComponents } from '@/lib/api/buildApi';
 import { IPart } from '@/lib/api/productApi';
@@ -145,23 +146,30 @@ export default function BuildSummary() {
       if (buildId) {
         await updateBuildMutation.mutateAsync({ id: buildId, payload: { name: buildName, components, isPublic } });
         setLastSaved(new Date());
+        toast.success('Build updated!');
         router.push(`/builds/${buildId}`);
       } else {
         const saved = await createBuildMutation.mutateAsync({ name: buildName, components, isPublic });
         setBuildId(saved._id);
         setLastSaved(new Date());
+        toast.success('Build saved!');
+        router.push(`/builds/${saved._id}`);
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string; errors?: { field: string; message: string }[] } }; code?: string };
       if (axiosErr?.response) {
         const { message, errors } = axiosErr.response.data ?? {};
         const detail = errors?.map(e => `${e.field}: ${e.message}`).join('; ');
-        setSaveError(detail ? `${message ?? 'Save failed'} — ${detail}` : (message ?? 'Save failed'));
+        const msg = detail ? `${message ?? 'Save failed'} — ${detail}` : (message ?? 'Save failed');
+        setSaveError(msg);
+        toast.error(msg);
       } else {
         const localId = saveLocally(buildName, buildId);
         if (!buildId) setBuildId(localId);
         setLastSaved(new Date());
-        setSaveWarn('Server unreachable — saved locally on this device.');
+        const warn = 'Server unreachable — saved locally on this device.';
+        setSaveWarn(warn);
+        toast.warning(warn);
       }
     }
   }
