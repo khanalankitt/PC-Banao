@@ -59,9 +59,15 @@ function computeTotals(slots: BuilderState['slots']): { totalPrice: number; tota
     ...slots.ram, ...slots.storage,
   ].filter((p): p is IPart => p !== null);
 
+  // PSU wattage is its rated output capacity, not power draw — exclude from component draw sum
+  const drawParts: IPart[] = [
+    slots.cpu, slots.gpu, slots.motherboard, slots.case, slots.cooler,
+    ...slots.ram, ...slots.storage,
+  ].filter((p): p is IPart => p !== null);
+
   return {
     totalPrice:   allParts.reduce((s, p) => s + p.price, 0),
-    totalWattage: allParts.reduce((s, p) => s + (p.wattage ?? 0), 0),
+    totalWattage: drawParts.reduce((s, p) => s + (p.wattage ?? 0), 0),
   };
 }
 

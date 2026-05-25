@@ -88,11 +88,10 @@ export default function BuildSummary() {
 
   const isBuildable = !!(slots.cpu && slots.gpu && slots.motherboard && slots.psu);
 
-  // PSU wattage = rated output capacity (e.g. 850W), already normalised by productApi.
-  // totalWattage from the store includes PSU capacity in its sum, so subtract it out
-  // to get the actual component power draw.
+  // totalWattage = sum of non-PSU component draw (PSU excluded in store).
+  // psuCapacity = rated output of the selected PSU.
   const psuCapacity = slots.psu?.wattage ?? 0;
-  const componentDraw = totalWattage - psuCapacity;
+  const componentDraw = totalWattage;
   const psuOk = psuCapacity === 0 || psuCapacity >= componentDraw * 1.2;
 
   function saveLocally(name: string, id: string | null): string {

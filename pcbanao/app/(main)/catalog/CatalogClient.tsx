@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo, ReactElement } from "react";
+import { useState, useMemo, ReactElement } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/landing/Navbar";
-import api from "@/lib/api/axios";
+import { useProducts } from "@/lib/queries/productQueries";
 import { useBuilderStore } from "@/store/builderStore";
 import type { SlotKey } from "@/store/builderStore";
 import type { RawProduct } from "@/lib/api/serverFetch";
@@ -438,8 +438,6 @@ function toIPart(raw: RawProduct): IPart {
 }
 
 export default function CatalogClient({ initialProducts }: { initialProducts: RawProduct[] }) {
-  const [products, setProducts] = useState<IPart[]>(initialProducts.map(toIPart));
-  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<"all" | Category>("all");
   const [minPrice, setMinPrice] = useState("");
@@ -450,24 +448,23 @@ export default function CatalogClient({ initialProducts }: { initialProducts: Ra
   const [filterOpen, setFilterOpen] = useState(false);
   const ITEMS_PER_PAGE = 9;
 
-  useEffect(() => {
-    // Only re-fetch when filters change — initial load is handled server-side
-    if (!search && selectedCategory === "all" && !minPrice && !maxPrice && !inStockOnly) return;
-    setLoading(true);
-    const params: Record<string, string> = { page: "1", limit: "100" };
-    if (selectedCategory !== "all") params.category = selectedCategory;
-    if (search) params.search = search;
-    if (minPrice) params.minPrice = minPrice;
-    if (maxPrice) params.maxPrice = maxPrice;
-    if (inStockOnly) params.inStock = "true";
-    api.get("/api/products", { params })
-      .then((res) => {
-        if (res.data?.success && Array.isArray(res.data?.data?.products))
-          setProducts(res.data.data.products.map(toIPart));
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [selectedCategory, search, minPrice, maxPrice, inStockOnly]);
+  const hasFilters = !!(search || selectedCategory !== "all" || minPrice || maxPrice || inStockOnly);
+
+  const queryParams = useMemo(() => ({
+    ...(selectedCategory !== "all" && { category: selectedCategory as Category }),
+    ...(search && { search }),
+    ...(minPrice && { minPrice: Number(minPrice) }),
+    ...(maxPrice && { maxPrice: Number(maxPrice) }),
+    ...(inStockOnly && { inStock: true }),
+    limit: 100,
+  }), [selectedCategory, search, minPrice, maxPrice, inStockOnly]);
+
+  const { data: queryData, isFetching: loading } = useProducts(queryParams);
+
+  const products: IPart[] = useMemo(() => {
+    if (hasFilters && queryData) return queryData.products;
+    return initialProducts.map(toIPart);
+  }, [hasFilters, queryData, initialProducts]);
 
   const filtered = useMemo(() => {
     const list = [...products];
@@ -480,7 +477,14 @@ export default function CatalogClient({ initialProducts }: { initialProducts: Ra
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-  useEffect(() => { setPage(1); }, [search, selectedCategory, minPrice, maxPrice, inStockOnly, sortKey]);
+  // Reset to page 1 when filters/sort change
+  const [prevFilters, setPrevFilters] = useState({ search, selectedCategory, minPrice, maxPrice, inStockOnly, sortKey });
+  if (prevFilters.search !== search || prevFilters.selectedCategory !== selectedCategory ||
+      prevFilters.minPrice !== minPrice || prevFilters.maxPrice !== maxPrice ||
+      prevFilters.inStockOnly !== inStockOnly || prevFilters.sortKey !== sortKey) {
+    setPrevFilters({ search, selectedCategory, minPrice, maxPrice, inStockOnly, sortKey });
+    if (page !== 1) setPage(1);
+  }
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { _total: products.length };

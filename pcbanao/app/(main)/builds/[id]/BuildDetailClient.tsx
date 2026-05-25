@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/landing/Navbar";
-import api from "@/lib/api/axios";
+import { useDeleteBuild } from "@/lib/queries/buildQueries";
 import { useBuilderStore } from "@/store/builderStore";
 import type { SlotKey } from "@/store/builderStore";
 import type { RawBuild } from "@/lib/api/serverFetch";
@@ -115,6 +115,7 @@ export default function BuildDetailClient({ rawBuild }: { rawBuild: RawBuild }) 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const deleteBuildMutation = useDeleteBuild();
   const isOwner = !!session?.user?._id && session.user._id === build.user._id;
 
   function loadIntoStore(target: IBuild, keepId: boolean) {
@@ -129,8 +130,13 @@ export default function BuildDetailClient({ rawBuild }: { rawBuild: RawBuild }) 
 
   async function handleDelete() {
     setDeleting(true);
-    try { await api.delete(`/api/builds/${build._id}`); router.push("/builds"); }
-    catch { setDeleting(false); setConfirmDelete(false); }
+    try {
+      await deleteBuildMutation.mutateAsync(build._id);
+      router.push("/builds");
+    } catch {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
   }
 
   const compatible = build.compatibility.isCompatible;

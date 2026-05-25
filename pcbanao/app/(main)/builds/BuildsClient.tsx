@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
 import Navbar from "@/components/landing/Navbar";
-import api from "@/lib/api/axios";
+import { useMyBuilds } from "@/lib/queries/buildQueries";
 import { useBuilderStore } from "@/store/builderStore";
 import type { SlotKey } from "@/store/builderStore";
 import type { RawBuild } from "@/lib/api/serverFetch";
@@ -290,11 +290,27 @@ interface Props {
 export default function BuildsClient({ initialBuilds, initialTotal }: Props) {
   const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<"community" | "mine">("community");
-  const [communityBuilds, setCommunityBuilds] = useState<IBuild[]>(initialBuilds.map(normaliseApiBuild));
-  const [myBuilds, setMyBuilds] = useState<IBuild[]>([]);
-  const [loadingMine, setLoadingMine] = useState(false);
-  const [mineError, setMineError] = useState<"auth" | "network" | null>(null);
-  const [mineRetryKey, setMineRetryKey] = useState(0);
+
+  const communityBuilds = useMemo(() => initialBuilds.map(normaliseApiBuild), [initialBuilds]);
+
+  const {
+    data: myBuildsData,
+    isLoading: loadingMine,
+    isError: mineIsError,
+    error: mineRawError,
+    refetch: retryMine,
+  } = useMyBuilds();
+
+  const myBuilds: IBuild[] = useMemo(
+    () => (myBuildsData ?? []).map((b) => normaliseApiBuild(b)),
+    [myBuildsData],
+  );
+
+  const mineError: "auth" | "network" | null = useMemo(() => {
+    if (!mineIsError) return null;
+    const err = mineRawError as { response?: { status?: number } } | null;
+    return err?.response?.status === 401 ? "auth" : "network";
+  }, [mineIsError, mineRawError]);
 
   const total = communityBuilds.length || initialTotal;
   const compatCount = communityBuilds.filter((b) => b.compatibility.isCompatible).length;
@@ -303,26 +319,8 @@ export default function BuildsClient({ initialBuilds, initialTotal }: Props) {
     ? Math.round(communityBuilds.reduce((s, b) => s + b.totalPrice, 0) / communityBuilds.length || 0)
     : 0;
 
-  const fetchMyBuilds = useCallback(() => {
-    if (!session || activeTab !== "mine") return;
-    setMineError(null);
-    setLoadingMine(true);
-    api.get("/api/builds/mine")
-      .then((res) => {
-        if (res.data?.success && Array.isArray(res.data?.data))
-          setMyBuilds(res.data.data.map(normaliseApiBuild));
-        else setMineError("network");
-      })
-      .catch((err: { response?: { status?: number } }) => {
-        setMineError(err?.response?.status === 401 ? "auth" : "network");
-      })
-      .finally(() => setLoadingMine(false));
-  }, [session, activeTab]);
-
-  useEffect(() => { fetchMyBuilds(); }, [fetchMyBuilds, mineRetryKey]);
-
   const displayedBuilds = activeTab === "community" ? communityBuilds : myBuilds;
-  const isLoading = activeTab === "mine" ? loadingMine : false;
+  const isLoading = activeTab === "mine" && loadingMine;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-void)", color: "var(--text-primary)" }}>
@@ -403,7 +401,7 @@ export default function BuildsClient({ initialBuilds, initialTotal }: Props) {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 24px", textAlign: "center" }}>
             <h3 style={{ fontSize: "17px", fontWeight: 700, color: "#f0f8ff", margin: "0 0 8px" }}>Couldn&apos;t load your builds</h3>
             <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "13px", maxWidth: "280px", lineHeight: 1.65, margin: "0 0 24px" }}>There was a problem reaching the server.</p>
-            <button onClick={() => setMineRetryKey((k) => k + 1)} style={{ padding: "10px 26px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#f0f8ff", fontSize: "12px", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}>Retry</button>
+            <button onClick={() => retryMine()} style={{ padding: "10px 26px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#f0f8ff", fontSize: "12px", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}>Retry</button>
           </div>
         ) : activeTab === "mine" && displayedBuilds.length === 0 ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 24px", textAlign: "center" }}>
