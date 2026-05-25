@@ -11,6 +11,8 @@ export function useProducts(params: ListProductsParams = {}) {
   return useQuery({
     queryKey: productKeys.list(params),
     queryFn: () => listProducts(params),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -19,5 +21,7 @@ export function useProduct(id: string) {
     queryKey: productKeys.detail(id),
     queryFn: () => getProduct(id),
     enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 }

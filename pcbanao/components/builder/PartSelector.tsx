@@ -113,29 +113,6 @@ const SLOT_META: Record<SlotKey, {
 
 const SLOT_ORDER: SlotKey[] = ['cpu', 'gpu', 'motherboard', 'ram', 'storage', 'psu', 'case', 'cooler'];
 
-// ─── Mock fallback data ───────────────────────────────────────────────────────
-
-const MOCK_PARTS: IPart[] = [
-  { _id: 'm1',  name: 'Ryzen 9 7950X',              brand: 'AMD',     category: 'cpu',         price: 699,  stock: 14, images: [], specs: { cores: 16, threads: 32, socket: 'AM5', tdp: '170W' },      wattage: 170 },
-  { _id: 'm2',  name: 'Core i9-13900K',              brand: 'Intel',   category: 'cpu',         price: 589,  stock: 9,  images: [], specs: { cores: 24, threads: 32, socket: 'LGA1700', tdp: '125W' }, wattage: 125 },
-  { _id: 'm3',  name: 'Ryzen 5 7600X',               brand: 'AMD',     category: 'cpu',         price: 249,  stock: 22, images: [], specs: { cores: 6, threads: 12, socket: 'AM5', tdp: '105W' },      wattage: 105 },
-  { _id: 'm4',  name: 'GeForce RTX 4090',             brand: 'NVIDIA',  category: 'gpu',         price: 1599, stock: 4,  images: [], specs: { vram: '24 GB GDDR6X', tdp: '450W' },                       wattage: 450 },
-  { _id: 'm5',  name: 'Radeon RX 7900 XTX',           brand: 'AMD',     category: 'gpu',         price: 999,  stock: 7,  images: [], specs: { vram: '24 GB GDDR6', tdp: '355W' },                        wattage: 355 },
-  { _id: 'm6',  name: 'GeForce RTX 4070 Ti',          brand: 'NVIDIA',  category: 'gpu',         price: 799,  stock: 11, images: [], specs: { vram: '12 GB GDDR6X', tdp: '285W' },                       wattage: 285 },
-  { _id: 'm7',  name: 'ROG Crosshair X670E Hero',     brand: 'ASUS',    category: 'motherboard', price: 629,  stock: 6,  images: [], specs: { socket: 'AM5', formFactor: 'ATX', chipset: 'X670E' } },
-  { _id: 'm8',  name: 'MPG Z790 Carbon WiFi',         brand: 'MSI',     category: 'motherboard', price: 469,  stock: 8,  images: [], specs: { socket: 'LGA1700', formFactor: 'ATX', chipset: 'Z790' } },
-  { _id: 'm9',  name: 'Trident Z5 64 GB DDR5-6000',  brand: 'G.Skill', category: 'ram',         price: 219,  stock: 18, images: [], specs: { capacity: '64 GB', type: 'DDR5', speed: '6000 MHz' } },
-  { _id: 'm10', name: 'Vengeance 32 GB DDR5-6200',   brand: 'Corsair', category: 'ram',         price: 129,  stock: 31, images: [], specs: { capacity: '32 GB', type: 'DDR5', speed: '6200 MHz' } },
-  { _id: 'm11', name: '990 Pro 2 TB NVMe',            brand: 'Samsung', category: 'storage',     price: 179,  stock: 25, images: [], specs: { capacity: '2 TB', interface: 'PCIe 4.0 NVMe' } },
-  { _id: 'm12', name: 'FireCuda 530 4 TB NVMe',       brand: 'Seagate', category: 'storage',     price: 329,  stock: 12, images: [], specs: { capacity: '4 TB', interface: 'PCIe 4.0 NVMe' } },
-  { _id: 'm13', name: 'HX1200 Platinum 1200W',        brand: 'Corsair', category: 'psu',         price: 229,  stock: 9,  images: [], specs: { wattage: '1200W', efficiency: '80+ Platinum' },            wattage: 1200 },
-  { _id: 'm14', name: 'FOCUS GX-850 850W',             brand: 'Seasonic',category: 'psu',         price: 149,  stock: 15, images: [], specs: { wattage: '850W', efficiency: '80+ Gold' },                wattage: 850 },
-  { _id: 'm15', name: 'Lian Li O11D EVO RGB',         brand: 'Lian Li', category: 'case',        price: 179,  stock: 5,  images: [], specs: { formFactor: 'Mid Tower', mbSupport: 'E-ATX/ATX' } },
-  { _id: 'm16', name: 'H9 Flow Mid Tower',             brand: 'NZXT',    category: 'case',        price: 129,  stock: 8,  images: [], specs: { formFactor: 'Mid Tower', mbSupport: 'ATX/mATX/ITX' } },
-  { _id: 'm17', name: 'Kraken Elite 360 AIO',          brand: 'NZXT',    category: 'cooler',      price: 269,  stock: 3,  images: [], specs: { type: 'Liquid AIO', radiator: '360 mm' },                  wattage: 25 },
-  { _id: 'm18', name: 'NH-D15 Air Cooler',             brand: 'Noctua',  category: 'cooler',      price: 109,  stock: 17, images: [], specs: { type: 'Air', height: '165 mm', fans: '2×140 mm' },         wattage: 5 },
-];
-
 // ─── Part Picker Modal ────────────────────────────────────────────────────────
 
 function PartPickerModal({ slot, onClose }: { slot: SlotKey; onClose: () => void }) {
@@ -146,10 +123,7 @@ function PartPickerModal({ slot, onClose }: { slot: SlotKey; onClose: () => void
   const [hovered, setHovered] = useState<string | null>(null);
 
   const { data, isLoading } = useProducts({ category: slot, limit: 50 });
-  const parts: IPart[] =
-    data && data.products.length > 0
-      ? data.products
-      : MOCK_PARTS.filter((p) => p.category === slot);
+  const parts: IPart[] = data?.products ?? [];
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -278,7 +252,9 @@ function PartPickerModal({ slot, onClose }: { slot: SlotKey; onClose: () => void
               <div style={{ fontSize: '28px', marginBottom: '10px', opacity: 0.4 }}>
                 <meta.Icon color="currentColor" />
               </div>
-              <p style={{ margin: 0, fontSize: '14px' }}>No parts match "{search}"</p>
+              <p style={{ margin: 0, fontSize: '14px' }}>
+                {search ? `No parts match "${search}"` : `No ${meta.label} parts available`}
+              </p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '4px' }}>

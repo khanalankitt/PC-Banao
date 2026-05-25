@@ -1,5 +1,3 @@
-'use client';
-
 import Navbar from '@/components/landing/Navbar';
 import PartSelector from '@/components/builder/PartSelector';
 import BuildSummary from '@/components/builder/BuildSummary';

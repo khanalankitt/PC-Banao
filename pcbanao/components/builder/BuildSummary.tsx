@@ -87,9 +87,13 @@ export default function BuildSummary() {
   const progress = Math.round((filledCategories / totalSlots) * 100);
 
   const isBuildable = !!(slots.cpu && slots.gpu && slots.motherboard && slots.psu);
-  const psuWattage = slots.psu?.wattage ?? 0;
-  const componentDraw = totalWattage - psuWattage;
-  const psuOk = psuWattage === 0 || psuWattage >= componentDraw * 1.2;
+
+  // PSU wattage = rated output capacity (e.g. 850W), already normalised by productApi.
+  // totalWattage from the store includes PSU capacity in its sum, so subtract it out
+  // to get the actual component power draw.
+  const psuCapacity = slots.psu?.wattage ?? 0;
+  const componentDraw = totalWattage - psuCapacity;
+  const psuOk = psuCapacity === 0 || psuCapacity >= componentDraw * 1.2;
 
   function saveLocally(name: string, id: string | null): string {
     const localId = id ?? `local_${Date.now()}`;
@@ -264,9 +268,9 @@ export default function BuildSummary() {
             <div style={{ fontSize: '20px', fontWeight: 900, color: wattageColor(componentDraw), letterSpacing: '-0.03em', lineHeight: 1 }}>
               {componentDraw}W
             </div>
-            {psuWattage > 0 && (
+            {psuCapacity > 0 && (
               <div style={{ fontSize: '10px', color: psuOk ? 'rgba(52,211,153,0.7)' : '#f87171', marginTop: '4px' }}>
-                {psuOk ? `${psuWattage}W PSU — ok` : `Need ${Math.ceil(componentDraw * 1.2 / 50) * 50}W+`}
+                {psuOk ? `${psuCapacity}W PSU — ok` : `Need ${Math.ceil(componentDraw * 1.2 / 50) * 50}W+`}
               </div>
             )}
           </div>

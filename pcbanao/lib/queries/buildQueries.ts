@@ -16,6 +16,8 @@ export function useMyBuilds() {
   return useQuery({
     queryKey: buildKeys.mine(),
     queryFn: getMyBuilds,
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 }
 
