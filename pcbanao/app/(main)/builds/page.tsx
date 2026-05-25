@@ -455,9 +455,9 @@ function SignInPrompt() {
 export default function BuildsPage() {
   const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<"community" | "mine">("community");
-  const [communityBuilds, setCommunityBuilds] = useState<IBuild[]>(MOCK_BUILDS);
+  const [communityBuilds, setCommunityBuilds] = useState<IBuild[]>([]);
   const [myBuilds, setMyBuilds] = useState<IBuild[]>([]);
-  const [loadingCommunity, setLoadingCommunity] = useState(false);
+  const [loadingCommunity, setLoadingCommunity] = useState(true);
   const [loadingMine, setLoadingMine] = useState(false);
   const [mineError, setMineError] = useState<"auth" | "network" | null>(null);
   const [mineRetryKey, setMineRetryKey] = useState(0);
@@ -473,7 +473,7 @@ export default function BuildsPage() {
     setLoadingCommunity(true);
     api.get("/api/builds/public", { params: { page: 1, limit: 20 } })
       .then((res) => {
-        if (res.data?.success && Array.isArray(res.data?.data?.builds) && res.data.data.builds.length > 0)
+        if (res.data?.success && Array.isArray(res.data?.data?.builds))
           setCommunityBuilds(res.data.data.builds.map(normaliseApiBuild));
       })
       .catch(() => {})
