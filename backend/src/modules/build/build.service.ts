@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
+import Part from '../../models/parts.model';
 import { AppError } from '../../shared/types';
 import { runCompatibilityCheck } from '../compatibility/compatibility.service';
-import { findPartsByIds } from '../compatibility/compatibility.repository';
 import {
   BuildRow,
   CreateBuildPayload,
@@ -38,12 +38,8 @@ async function computeTotalPrice(components: ReturnType<typeof mapComponents>): 
 
   if (allIds.length === 0) return 0;
 
-  const parts = await findPartsByIds(allIds);
-  // Parts model has price — re-fetch with price field
-  const partPrices = await import('../../models/parts.model').then(({ default: Part }) =>
-    Part.find({ _id: { $in: allIds } }).select('price').lean<{ price: number }[]>(),
-  );
-  return partPrices.reduce((sum, p) => sum + p.price, 0);
+  const parts = await Part.find({ _id: { $in: allIds } }).select('price').lean<{ price: number }[]>();
+  return parts.reduce((sum: number, p: { price: number }) => sum + p.price, 0);
 }
 
 function mapComponents(raw: CreateBuildInput['components']): ReturnType<typeof buildComponentsFromRaw> {
